@@ -1,0 +1,15 @@
+*.pyc
+.idea
+log/*
+pidfile
+*.txt
+nohup.out
+config.py
+dist/
+distsuper.egg-info
+build
+logs
+venv
+distsuper.ini
+*.log
+tmp
