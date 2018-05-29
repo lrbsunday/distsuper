@@ -181,3 +181,9 @@ def loop_request():
         return __wrapper
 
     return __decro
+
+
+def get_config_hash(command, machines, touch_timeout):
+    return get_md5("#".join(
+        map(str, [command, machines, touch_timeout])
+    ))

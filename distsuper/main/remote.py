@@ -4,13 +4,14 @@ import logging
 import requests
 
 from distsuper.common import tools, exceptions
+from distsuper import CONFIG
 
 
-def remote_start(program_name, machine):
-    url = "http://%s:3379/start" % machine
+def remote_start(program_id, machine):
+    url = "http://%s:%s/start" % (machine, CONFIG.AGENTHTTP.port)
     try:
         response = requests.post(url, json={
-            "program_name": program_name,
+            "program_id": program_id,
             "machine": machine
         }, timeout=3)
     except requests.ConnectionError:
@@ -35,11 +36,11 @@ def remote_start(program_name, machine):
     return True
 
 
-def remote_stop(program_name, machine):
-    url = "http://%s:3379/stop" % machine
+def remote_stop(program_id, machine):
+    url = "http://%s:%s/stop" % (machine, CONFIG.AGENTHTTP.port)
     try:
         response = requests.post(url, json={
-            "program_name": program_name
+            "program_id": program_id
         }, timeout=3)
     except requests.ConnectionError:
         logging.error("接口请求失败: ConnectionError - %s" % url)
@@ -63,20 +64,19 @@ def remote_stop(program_name, machine):
     return True
 
 
-def remote_status(program_name, machine):
+def remote_status(program_id, machine):
     """
-
-    :param program_name:
+    :param program_id:
     :param machine:
     :return:
         True  运行中
         False 不存在
         None  未知
     """
-    url = "http://%s:3379/status" % machine
+    url = "http://%s:%s/status" % (machine, CONFIG.AGENTHTTP.port)
     try:
         response = requests.post(url, json={
-            "program_name": program_name
+            "program_id": program_id
         }, timeout=3)
     except requests.ConnectionError:
         logging.error("接口请求失败: ConnectionError - %s" % url)
@@ -100,20 +100,21 @@ def remote_status(program_name, machine):
     return r_dict['data']['status']
 
 
-def remote_check(machine, status):
+def remote_check(machine, port, status):
     if status == 'STARTING':
         ret = tools.retry(max_retry_count=3)(remote_check_only_once)(
-            machine, status)
+            machine, port, status)
     elif status == 'STOPPING':
         ret = tools.retry()(remote_check_only_once)(
-            machine, status)
+            machine, port, status)
     else:
         ret = None
     return ret
 
 
-def remote_check_only_once(machine, status):
-    url = "http://%s:3379/check" % machine
+def remote_check_only_once(machine, port, status):
+    url = "http://%s:%s/check" % (machine, port)
+    logging.info(url)
     try:
         response = requests.get(url, timeout=1)
     except requests.Timeout:

@@ -58,8 +58,7 @@ def register_signal_handlers(process, info, callbacks):
 def touch_db(program_name, touch_timeout):
     logging.info("进程%s运行中..." % program_name)
     timeout_timestamp = int(time.time() + touch_timeout)
-    ret = ProcessModel.update(timeout_timestamp=timeout_timestamp,
-                              update_time=tools.get_now_time()) \
+    ret = ProcessModel.update(timeout_timestamp=timeout_timestamp) \
         .where(ProcessModel.name == program_name) \
         .execute()
     if ret == 0:

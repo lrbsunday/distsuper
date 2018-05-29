@@ -1,6 +1,14 @@
 import json
 
 
+class SimpleEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if hasattr(obj, '__str__'):
+            return str(obj)
+        else:
+            return ''
+
+
 class BaseExc(Exception):
     code = 0
     msg = ""
@@ -21,7 +29,7 @@ class BaseExc(Exception):
         }
         if self.data is not None:
             r_dict["data"] = self.data
-        return json.dumps(r_dict, ensure_ascii=False)
+        return json.dumps(r_dict, cls=SimpleEncoder, ensure_ascii=False)
 
 
 class NoException(BaseExc):
@@ -92,6 +100,21 @@ class ProcessStatusException(BaseExc):
 class DBConflictException(BaseExc):
     code = 512
     msg = "数据库状态冲突（乐观锁）"
+
+
+class DBIntegrityException(BaseExc):
+    code = 513
+    msg = "数据库完整性错误, 请稍后重试"
+
+
+class AlreadExistsException(BaseExc):
+    code = 514
+    msg = "数据记录已存在"
+
+
+class DuplicateOperationException(BaseExc):
+    code = 515
+    msg = "重复操作"
 
 
 class NoConfigException(BaseExc):

@@ -13,3 +13,5 @@ venv
 distsuper.ini
 *.log
 tmp
+*.pid
+test.py
