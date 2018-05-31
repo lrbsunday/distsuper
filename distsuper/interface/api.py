@@ -33,8 +33,8 @@ def create_process(program_name, command,
             "machines": machines,
             "max_fail_count": max_fail_count,
         }, timeout=3)
-    except requests.ConnectionError:
-        logging.error("接口请求失败: ConnectionError - %s" % url)
+    except requests.RequestException:
+        logging.error("接口请求失败: RequestException - %s" % url)
         return False
 
     if response.status_code != 200:
@@ -49,7 +49,7 @@ def create_process(program_name, command,
 
     if "code" not in r_dict or r_dict["code"] != 200:
         logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("msg")))
+            r_dict.get("code"), r_dict.get("dmsg")))
         return False
 
     return r_dict["data"].get("program_id", "")
@@ -70,8 +70,8 @@ def start_process(program_id):
         response = requests.post(url, json={
             "program_id": program_id
         }, timeout=3)
-    except requests.ConnectionError:
-        logging.error("接口请求失败: ConnectionError - %s" % url)
+    except requests.RequestException:
+        logging.error("接口请求失败: RequestException - %s" % url)
         return False
 
     if response.status_code != 200:
@@ -86,7 +86,7 @@ def start_process(program_id):
 
     if "code" not in r_dict or r_dict["code"] not in (200, 515):
         logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("msg")))
+            r_dict.get("code"), r_dict.get("dmsg")))
         return False
 
     if r_dict["code"] == 515:
@@ -110,8 +110,8 @@ def stop_process(program_id):
         response = requests.post(url, json={
             "program_id": program_id
         }, timeout=3)
-    except requests.ConnectionError:
-        logging.error("接口请求失败: ConnectionError - %s" % url)
+    except requests.RequestException:
+        logging.error("接口请求失败: RequestException - %s" % url)
         return False
 
     if response.status_code != 200:
@@ -126,7 +126,7 @@ def stop_process(program_id):
 
     if "code" not in r_dict or r_dict["code"] not in (200, 515):
         logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("msg")))
+            r_dict.get("code"), r_dict.get("dmsg")))
         return False
 
     if r_dict["code"] == 515:

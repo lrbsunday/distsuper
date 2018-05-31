@@ -18,9 +18,9 @@ class COMMON(object):
     server = config.get('common', 'server', fallback='localhost')
     agent = config.get('common', 'agent', fallback='localhost')
     server_log_file_path = config.get('server', 'server_log_file_path',
-                                      fallback='./logs/distsuper.server.log')
+                                      fallback='./logs/server.log')
     agent_log_file_path = config.get('agent', 'agent_log_file_path',
-                                     fallback='./logs/distsuper.agent.log')
+                                     fallback='./logs/agent.log')
 
 
 class DB(object):

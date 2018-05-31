@@ -14,8 +14,8 @@ def remote_start(program_id, machine):
             "program_id": program_id,
             "machine": machine
         }, timeout=3)
-    except requests.ConnectionError:
-        logging.error("接口请求失败: ConnectionError - %s" % url)
+    except requests.RequestException:
+        logging.error("接口请求失败: RequestException - %s" % url)
         return False
 
     if response.status_code != 200:
@@ -30,7 +30,7 @@ def remote_start(program_id, machine):
 
     if "code" not in r_dict or r_dict["code"] != 200:
         logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("msg")))
+            r_dict.get("code"), r_dict.get("dmsg")))
         return False
 
     return True
@@ -42,8 +42,8 @@ def remote_stop(program_id, machine):
         response = requests.post(url, json={
             "program_id": program_id
         }, timeout=3)
-    except requests.ConnectionError:
-        logging.error("接口请求失败: ConnectionError - %s" % url)
+    except requests.RequestException:
+        logging.error("接口请求失败: RequestException - %s" % url)
         return False
 
     if response.status_code != 200:
@@ -58,7 +58,7 @@ def remote_stop(program_id, machine):
 
     if "code" not in r_dict or r_dict["code"] != 200:
         logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("msg")))
+            r_dict.get("code"), r_dict.get("dmsg")))
         return False
 
     return True
@@ -78,8 +78,8 @@ def remote_status(program_id, machine):
         response = requests.post(url, json={
             "program_id": program_id
         }, timeout=3)
-    except requests.ConnectionError:
-        logging.error("接口请求失败: ConnectionError - %s" % url)
+    except requests.RequestException:
+        logging.error("接口请求失败: RequestException - %s" % url)
         return None
 
     if response.status_code != 200:
@@ -94,7 +94,7 @@ def remote_status(program_id, machine):
 
     if "code" not in r_dict or r_dict["code"] != 200:
         logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("msg")))
+            r_dict.get("code"), r_dict.get("dmsg")))
         return None
 
     return r_dict['data']['status']
@@ -119,7 +119,7 @@ def remote_check_only_once(machine, port, status):
         response = requests.get(url, timeout=1)
     except requests.Timeout:
         raise exceptions.RetryException
-    except requests.ConnectionError:
+    except requests.RequestException:
         if status == 'STOPPING':
             return False
         raise exceptions.RetryException

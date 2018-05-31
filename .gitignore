@@ -15,3 +15,5 @@ distsuper.ini
 tmp
 *.pid
 test.py
+.DS_Store
+restart.py

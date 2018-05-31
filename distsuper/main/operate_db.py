@@ -125,7 +125,8 @@ def create_or_update_program(program_name, command, machines,
             fields['config_hash'] = config_hash
         ret_code = Process.update(**fields) \
             .where(Process.name == program_name,
-                   Process.config_hash == program.config_hash) \
+                   Process.config_hash == program.config_hash,
+                   Process.pstatus << [0, 4, 5]) \
             .execute()
         if ret_code == 1:
             return "%s#%s" % (program.name, program.id)
@@ -152,10 +153,25 @@ def start_program(program_id):
             logging.error(msg)
             raise exceptions.ProcessStatusException(msg)
 
-        if program.pstatus in (2,):
+        if program.pstatus == 2 and program.cstatus == 1:
             msg = "程序%s已启动，请不要重复操作" % program_id
             logging.error(msg)
             raise exceptions.DuplicateOperationException(msg)
+
+        if program.pstatus == 2 and program.cstatus == 0:
+            fields = dict(cstatus=1,
+                          update_time=tools.get_now_time())
+            ret_code = Process.update(**fields) \
+                .where(Process.id == program_id,
+                       Process.pstatus == 2,
+                       Process.cstatus == 0) \
+                .execute()
+            if ret_code == 1:
+                return
+            else:
+                msg = "程序%s的状态冲突，请稍后再试" % program_id
+                logging.error(msg)
+                raise exceptions.DBConflictException(msg)
 
         fields = dict(cstatus=1,
                       pstatus=0,
@@ -165,7 +181,7 @@ def start_program(program_id):
                    Process.pstatus << [0, 4, 5]) \
             .execute()
         if ret_code == 1:
-            pass
+            return
         else:
             msg = "程序%s的状态冲突，请稍后再试" % program_id
             logging.error(msg)
@@ -185,10 +201,25 @@ def stop_program(program_id):
         logging.error(msg)
         raise exceptions.ProcessStatusException(msg)
 
-    if process.pstatus in (0, 4, 5):
+    if process.pstatus in (0, 4, 5) and process.cstatus == 0:
         msg = "程序%s已停止，请不要重复操作" % program_id
         logging.error(msg)
         raise exceptions.DuplicateOperationException(msg)
+
+    if process.pstatus in (0, 4, 5) and process.cstatus == 1:
+        fields = dict(cstatus=0,
+                      update_time=tools.get_now_time())
+        ret_code = Process.update(**fields) \
+            .where(Process.id == program_id,
+                   Process.pstatus << [0, 4, 5],
+                   Process.cstatus == 1) \
+            .execute()
+        if ret_code == 1:
+            return
+        else:
+            msg = "程序%s的状态冲突，请稍后再试" % program_id
+            logging.error(msg)
+            raise exceptions.DBConflictException(msg)
 
     fields = dict(cstatus=0,
                   update_time=tools.get_now_time())
