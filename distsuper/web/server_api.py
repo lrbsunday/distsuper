@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 import logging
 
 from distsuper.common import handlers, tools, exceptions
@@ -25,6 +26,8 @@ def create(request_info):
         raise exceptions.LackParamException("请求参数缺少command")
     if 'machines' not in request_info:
         raise exceptions.LackParamException("请求参数缺少machines")
+    directory = request_info.get('directory')
+    environment = request_info.get('environment')
     auto_start = request_info.get('auto_start', True)
     auto_restart = request_info.get('auto_restart', True)
     touch_timeout = request_info.get('touch_timeout', 10 * 365 * 24 * 3600)
@@ -41,6 +44,7 @@ def create(request_info):
         raise exceptions.ParamValueException("program_name不能为空")
 
     program_id = create_program(program_name, command, machines,
+                                directory, environment,
                                 auto_start, auto_restart, touch_timeout,
                                 max_fail_count, source)
 
@@ -50,21 +54,25 @@ def create(request_info):
 @app.route('/start', methods=['GET', 'POST'])
 @handlers.request_pre_handler()
 def start(request_info):
-    if 'program_id' not in request_info:
-        raise exceptions.LackParamException("请求参数缺少program_id")
+    if request_info.get('program_id') is None and \
+            request_info.get('program_name') is None:
+        raise exceptions.LackParamException("请求参数缺少program_id/program_name")
 
-    program_id = str(request_info['program_id'])
-    if '#' in program_id:
+    if request_info.get('program_id') is not None:
+        program_id = str(request_info['program_id'])
+        if '#' in program_id:
+            try:
+                _, program_id = program_id.split('#')
+            except ValueError:
+                raise exceptions.ParamValueException("program_id格式不正确")
         try:
-            _, program_id = program_id.split('#')
+            program_id = int(program_id)
         except ValueError:
             raise exceptions.ParamValueException("program_id格式不正确")
-    try:
-        program_id = int(program_id)
-    except ValueError:
-        raise exceptions.ParamValueException("program_id格式不正确")
+        start_program(program_id=program_id)
 
-    start_program(program_id)
+    if request_info.get('program_name') is not None:
+        start_program(program_name=request_info['program_name'])
 
     return {}
 
@@ -72,20 +80,24 @@ def start(request_info):
 @app.route('/stop', methods=['GET', 'POST'])
 @handlers.request_pre_handler()
 def stop(request_info):
-    if 'program_id' not in request_info:
-        raise exceptions.LackParamException("请求参数缺少program_id")
+    if request_info.get('program_id') is None and \
+            request_info.get('program_name') is None:
+        raise exceptions.LackParamException("请求参数缺少program_id/program_name")
 
-    program_id = str(request_info['program_id'])
-    if '#' in program_id:
+    if request_info.get('program_id') is not None:
+        program_id = str(request_info['program_id'])
+        if '#' in program_id:
+            try:
+                _, program_id = program_id.split('#')
+            except ValueError:
+                raise exceptions.ParamValueException("program_id格式不正确")
         try:
-            _, program_id = program_id.split('#')
+            program_id = int(program_id)
         except ValueError:
             raise exceptions.ParamValueException("program_id格式不正确")
-    try:
-        program_id = int(program_id)
-    except ValueError:
-        raise exceptions.ParamValueException("program_id格式不正确")
+        stop_program(program_id=program_id)
 
-    stop_program(program_id)
+    if request_info.get('program_name') is not None:
+        stop_program(program_name=request_info['program_name'])
 
     return {}

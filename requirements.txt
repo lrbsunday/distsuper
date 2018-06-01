@@ -1,6 +1,0 @@
-pymysql
-requests
-uwsgi
-flask
-peewee
-click

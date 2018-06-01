@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 import logging
 import time
 
@@ -56,14 +57,15 @@ def get_status_by_shell():
 
         results.append([name, status, machine, pid, start_time])
 
-    templates = []
-    for i in range(5):
-        max_length = max(len(result[i]) for result in results)
-        templates.append("%{}s".format(max_length))
+    if results:
+        templates = []
+        for i in range(5):
+            max_length = max(len(result[i]) for result in results)
+            templates.append("%{}s".format(max_length))
 
-    for result in results:
-        print('\t'.join([template % field
-                         for field, template in zip(result, templates)]))
+        for result in results:
+            print('\t'.join([template % field
+                             for field, template in zip(result, templates)]))
 
 
 def caculate_status(pstatus):

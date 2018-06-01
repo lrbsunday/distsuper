@@ -1,12 +1,13 @@
+#!-*- encoding: utf-8 -*-
 import os
 import time
 import signal
 import logging
+import threading
 import subprocess
 from multiprocessing import Process
 
 from distsuper.models.models import Process as ProcessModel
-from distsuper.common import tools
 
 
 def default_signal_handler(process, info, *args):
@@ -75,14 +76,26 @@ def task_wrapper(args, info, callbacks):
         if 'sigdefault' not in callbacks:
             callbacks['sigdefault'] = default_signal_handler
 
-        process = subprocess.Popen(args, shell=True)
+        directory = info.get('directory')
+        if directory is not None:
+            os.chdir(directory)
+        env = os.environ
+        environment = info.get('environment')
+        if environment is not None:
+            environment = {
+                field.strip().split('=', 2)[0].strip():
+                    field.strip().split('=', 2)[1].strip()
+                for field in environment.strip().split(';')
+            }
+            env.update(environment)
+
+        process = subprocess.Popen(args, env=env, shell=True)
         register_signal_handlers(process, info, callbacks)
 
-        running_time = 0  # 单位秒
-        while True:
-            try:
-                retcode = process.wait(1)
-            except subprocess.TimeoutExpired:
+        def touch_db_loop(is_stop_info):
+            running_time = 0  # 单位秒
+            while 'stop' not in is_stop_info:
+                time.sleep(1)
                 if running_time <= 3:
                     running_time += 1
                 if running_time == 3:
@@ -92,13 +105,21 @@ def task_wrapper(args, info, callbacks):
                 touch_db(info['program_name'], info['touch_timeout'])
                 continue
 
-            if retcode == 0:
-                if 'success' in callbacks and callable(callbacks['success']):
-                    callbacks['success'](args, retcode, info)
-            elif 'stop_flag' not in info:
-                if 'fail' in callbacks and callable(callbacks['fail']):
-                    callbacks['fail'](args, retcode, info)
-            break
+        _is_stop_info = dict()
+        thread = threading.Thread(target=touch_db_loop, args=(_is_stop_info,))
+        thread.start()
+
+        retcode = process.wait()
+        _is_stop_info['stop'] = True
+        if retcode == 0:
+            if 'success' in callbacks and callable(
+                    callbacks['success']):
+                callbacks['success'](args, retcode, info)
+        elif 'stop_flag' not in info:
+            if 'fail' in callbacks and callable(callbacks['fail']):
+                callbacks['fail'](args, retcode, info)
+
+        thread.join()
     except Exception:
         logging.exception('task wrapper')
 

@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 import logging
 
 from peewee import DoesNotExist, IntegrityError
@@ -7,6 +8,7 @@ from distsuper.common import tools, exceptions
 
 
 def create_program(program_name, command, machines,
+                   directory, environment,
                    auto_start, auto_restart, touch_timeout,
                    max_fail_count, source):
     """ 创建program，直接返回，后续由distsuperd启动
@@ -15,6 +17,8 @@ def create_program(program_name, command, machines,
     :param program_name:
     :param command:
     :param machines:
+    :param directory:
+    :param environment:
     :param auto_start:
     :param auto_restart:
     :param touch_timeout:
@@ -30,6 +34,8 @@ def create_program(program_name, command, machines,
     except DoesNotExist:
         fields = dict(name=program_name,
                       command=command,
+                      directory=directory,
+                      environment=environment,
                       machines=machines,
                       auto_start=auto_start,
                       auto_restart=auto_restart,
@@ -45,7 +51,7 @@ def create_program(program_name, command, machines,
             return "%s#%s" % (program.name, program.id)
         except IntegrityError:
             msg = "数据库完整性错误, 请稍后重试"
-            logging.error(msg)
+            logging.exception(msg)
             raise exceptions.DBIntegrityException(msg)
 
     if program.source != source:
@@ -54,7 +60,10 @@ def create_program(program_name, command, machines,
         raise exceptions.ParamValueException(msg)
 
     if program.pstatus in (0, 4, 5):
-        fields = dict(machines=machines,
+        fields = dict(command=command,
+                      machines=machines,
+                      directory=directory,
+                      environment=environment,
                       auto_start=auto_start,
                       auto_restart=auto_restart,
                       touch_timeout=touch_timeout,
@@ -88,6 +97,7 @@ def create_program(program_name, command, machines,
 
 
 def create_or_update_program(program_name, command, machines,
+                             directory, environment,
                              auto_start, auto_restart, touch_timeout,
                              max_fail_count, source):
     """ 创建program，直接返回，后续由distsuperd启动
@@ -96,6 +106,8 @@ def create_or_update_program(program_name, command, machines,
     :param program_name:
     :param command:
     :param machines:
+    :param directory:
+    :param environment:
     :param auto_start:
     :param auto_restart:
     :param touch_timeout:
@@ -105,13 +117,17 @@ def create_or_update_program(program_name, command, machines,
     """
     try:
         return create_program(program_name, command, machines,
+                              directory, environment,
                               auto_start, auto_restart, touch_timeout,
                               max_fail_count, source)
     except exceptions.AlreadExistsException as e:
         config_hash = tools.get_config_hash(command, machines,
                                             touch_timeout)
         program = e.data['program']
-        fields = dict(machines=machines,
+        fields = dict(command=command,
+                      machines=machines,
+                      directory=directory,
+                      environment=environment,
                       auto_restart=auto_restart,
                       auto_start=auto_start,
                       touch_timeout=touch_timeout,
@@ -136,13 +152,24 @@ def create_or_update_program(program_name, command, machines,
             raise exceptions.DBConflictException(msg)
 
 
-def start_program(program_id):
+def start_program(program_id=None, program_name=None):
     """ 根据配置启动program，直接返回，后续由distsuperd启动
     :param program_id: name#id or id
+    :param program_name:
     :return:
     """
     try:
-        program = Process.select().where(Process.id == program_id).get()
+        logging.info("in start, program_id is %s, "
+                     "program_name is %s" % (program_id, program_name))
+        if program_id is not None:
+            program = Process.select().where(Process.id == program_id).get()
+        elif program_name is not None:
+            program = Process.select().where(Process.name == program_name).get()
+            program_id = program.id
+        else:
+            msg = "请求参数缺少program_id/program_name"
+            logging.error(msg)
+            raise exceptions.LackParamException(msg)
     except DoesNotExist:
         msg = "程序%s的配置不存在" % program_id
         logging.error(msg)
@@ -188,9 +215,24 @@ def start_program(program_id):
             raise exceptions.DBConflictException(msg)
 
 
-def stop_program(program_id):
+def stop_program(program_id=None, program_name=None):
+    """ 根据配置停止program，直接返回，后续由distsuperd启动
+    :param program_id: name#id or id
+    :param program_name:
+    :return:
+    """
     try:
-        process = Process.select().where(Process.id == program_id).get()
+        logging.info("in stop, program_id is %s, "
+                     "program_name is %s" % (program_id, program_name))
+        if program_id is not None:
+            process = Process.select().where(Process.id == program_id).get()
+        elif program_name is not None:
+            process = Process.select().where(Process.name == program_name).get()
+            program_id = process.id
+        else:
+            msg = "请求参数缺少program_id/program_name"
+            logging.error(msg)
+            raise exceptions.LackParamException(msg)
     except DoesNotExist:
         msg = "程序%s的配置不存在" % program_id
         logging.error(msg)

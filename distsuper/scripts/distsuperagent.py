@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 import os
 import subprocess
 import logging
@@ -16,8 +17,9 @@ def main():
 
 
 @main.command()
-def start():
-    if os.path.exists(CONFIG.AGENTHTTP.pid_file_path):
+@click.option('--force', '-f', is_flag=True)
+def start(force=False):
+    if not force and os.path.exists(CONFIG.AGENTHTTP.pid_file_path):
         logging.warning("当前目录下存在pidfile，请确保agent没有启动，"
                         "并删除pidfile后再试")
         sys.exit(-1)
@@ -33,8 +35,9 @@ def start():
 
 
 @main.command()
-def stop():
-    if not os.path.exists(CONFIG.AGENTHTTP.pid_file_path):
+@click.option('--force', '-f', is_flag=True)
+def stop(force=False):
+    if not force and not os.path.exists(CONFIG.AGENTHTTP.pid_file_path):
         logging.warning("找不到pidfile，请确保agent已启动，"
                         "并在pidfile所在路径下执行该命令")
         sys.exit(-1)
@@ -48,8 +51,9 @@ def stop():
 
 
 @main.command()
-def restart():
-    if not os.path.exists(CONFIG.AGENTHTTP.pid_file_path):
+@click.option('--force', '-f', is_flag=True)
+def restart(force=False):
+    if not force and not os.path.exists(CONFIG.AGENTHTTP.pid_file_path):
         logging.warning("找不到pidfile，请确保agent已启动，"
                         "并在pidfile所在路径下执行该命令")
         sys.exit(-1)

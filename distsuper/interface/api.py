@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 import logging
 import json
 
@@ -7,12 +8,15 @@ from distsuper import CONFIG
 
 
 def create_process(program_name, command,
+                   directory=None, environment=None,
                    auto_start=True, auto_restart=True,
                    machines='127.0.0.1', touch_timeout=5,
                    max_fail_count=1):
     """ 创建一个进程，成功后接口立即返回，不等待进程启动
     :param program_name: 程序名称
     :param command: 执行的命令(shell script)
+    :param directory: 启动路径
+    :param environment: 环境变量A=a;B=b;C=c
     :param auto_start: 是否自启动
     :param auto_restart: 是否自动重启
     :param machines: 可执行在哪些机器
@@ -27,6 +31,8 @@ def create_process(program_name, command,
         response = requests.post(url, json={
             "program_name": program_name,
             "command": command,
+            "directory": directory,
+            "environment": environment,
             "auto_start": auto_start,
             "auto_restart": auto_restart,
             "touch_timeout": touch_timeout,
@@ -55,11 +61,12 @@ def create_process(program_name, command,
     return r_dict["data"].get("program_id", "")
 
 
-def start_process(program_id):
+def start_process(program_id=None, program_name=None):
     """ 启动一个进程（只修改数据库状态），成功后接口立即返回，不等待进程真正启动
         后续进程的启动由distsuperd保证
         以后考虑增加状态回调功能
     :param program_id: 程序ID
+    :param program_name: 程序名称
     :return:
         True  - 进程启动成功
         False - 进程启动失败
@@ -68,7 +75,8 @@ def start_process(program_id):
     url = "http://%s:%s/start" % (CONFIG.COMMON.server, CONFIG.SERVERHTTP.port)
     try:
         response = requests.post(url, json={
-            "program_id": program_id
+            "program_id": program_id,
+            "program_name": program_name
         }, timeout=3)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
@@ -95,11 +103,12 @@ def start_process(program_id):
     return True
 
 
-def stop_process(program_id):
+def stop_process(program_id=None, program_name=None):
     """ 停止一个进程（只修改数据库状态），成功后接口立即返回，不等待进程真正停止
         后续进程的停止由distsuperd保证
         以后考虑增加状态回调功能
     :param program_id: 程序ID
+    :param program_name: 程序名称
     :return:
         True  - 进程停止成功
         False - 进程停止失败
@@ -108,7 +117,8 @@ def stop_process(program_id):
     url = "http://%s:%s/stop" % (CONFIG.COMMON.server, CONFIG.SERVERHTTP.port)
     try:
         response = requests.post(url, json={
-            "program_id": program_id
+            "program_id": program_id,
+            "program_name": program_name
         }, timeout=3)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)

@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 import os
 import subprocess
 import time
@@ -57,6 +58,8 @@ def local_start(program_id, machine):
         raise exceptions.DBConflictException(msg)
 
     command = process.command
+    directory = process.directory
+    environment = process.environment
     touch_timeout = process.touch_timeout
     callbacks = {
         'success': success,
@@ -69,6 +72,8 @@ def local_start(program_id, machine):
         'machine': machine,
         'program_id': process.id,
         'program_name': process.name,
+        'directory': directory,
+        'environment': environment,
         'touch_timeout': touch_timeout,
         'stdout_logfile': '.logs/test.log'
     }

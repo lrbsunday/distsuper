@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 from peewee import *
 from . import BaseModel
 
@@ -12,6 +13,10 @@ class Process(BaseModel):
                      help_text="进程名称")
     command = CharField(max_length=256,
                         help_text="启动命令")
+    directory = CharField(max_length=256, null=True,
+                          help_text="启动路径")
+    environment = CharField(max_length=256, null=True,
+                            help_text="环境变量")
     machines = CharField(max_length=256,
                          help_text="失效转移的机器列表")
     auto_start = BooleanField(default=True,

@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 import functools
 import time
 import json

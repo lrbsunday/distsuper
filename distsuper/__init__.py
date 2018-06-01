@@ -1,10 +1,19 @@
+#!-*- encoding: utf-8 -*-
 import os
+import sys
 import logging
 import configparser
+
 from distsuper.common import tools
 
+if sys.version_info.major == 2:
+    # noinspection PyUnresolvedReferences
+    reload(sys)
+    # noinspection PyUnresolvedReferences
+    sys.setdefaultencoding('utf-8')
+
 tools.get_logger(None, None, level=logging.INFO)
-tools.get_logger('peewee', None, level=logging.DEBUG)
+# tools.get_logger('peewee', None, level=logging.DEBUG)
 
 config_file_path = './distsuper.ini'
 if not os.path.exists(config_file_path):

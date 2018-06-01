@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 import logging
 
 from distsuper import CONFIG
@@ -28,11 +29,16 @@ def load_config():
                                                 fallback=True)
         machines = CONFIG.config.get(section_name, 'machines',
                                      fallback='')
+        directory = CONFIG.config.get(section_name, 'directory',
+                                      fallback=None)
+        environment = CONFIG.config.get(section_name, 'environment',
+                                        fallback=None)
         touch_timeout = CONFIG.config.getint(section_name, 'touch_timeout',
                                              fallback=10 * 365 * 24 * 3600)
         max_fail_count = CONFIG.config.getint(section_name, 'max_fail_count',
                                               fallback=3)
         create_or_update_program(program_name, command, machines,
+                                 directory, environment,
                                  auto_start, auto_restart, touch_timeout,
                                  max_fail_count, 'file')
 

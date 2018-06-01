@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 from datetime import datetime
 
 from peewee import *
@@ -43,7 +44,7 @@ class BaseModel(Model):
     class Meta:
         database = database
 
-    id = AutoField(primary_key=True)
+    id = PrimaryKeyField()
     create_time = DateTimeField(index=True,
                                 default=datetime.now)  # 创建时间
     update_time = DateTimeField(index=True,

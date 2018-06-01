@@ -1,3 +1,4 @@
+#!-*- encoding: utf-8 -*-
 import logging
 
 from distsuper.common import handlers, tools, exceptions
