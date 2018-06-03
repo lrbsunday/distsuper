@@ -56,11 +56,12 @@ def register_signal_handlers(process, info, callbacks):
                             default_callback=defaultcallback)
 
 
-def touch_db(program_name, touch_timeout):
+def touch_db(program_name, pid, touch_timeout):
     logging.info("进程%s运行中..." % program_name)
     timeout_timestamp = int(time.time() + touch_timeout)
     ret = ProcessModel.update(timeout_timestamp=timeout_timestamp) \
-        .where(ProcessModel.name == program_name) \
+        .where(ProcessModel.name == program_name,
+               ProcessModel.pid == pid) \
         .execute()
     if ret == 0:
         logging.warning("更新数据库失败，没有这条记录")
@@ -102,8 +103,13 @@ def task_wrapper(args, info, callbacks):
                     if 'start_success' in callbacks and callable(
                             callbacks['start_success']):
                         callbacks['start_success'](args, info)
-                touch_db(info['program_name'], info['touch_timeout'])
-                continue
+                if running_time > 3:
+                    if touch_db(info['program_name'], info['pid'],
+                                info['touch_timeout']):
+                        continue
+                    else:
+                        process.terminate()
+                        break
 
         _is_stop_info = dict()
         thread = threading.Thread(target=touch_db_loop, args=(_is_stop_info,))

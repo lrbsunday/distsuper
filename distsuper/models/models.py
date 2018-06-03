@@ -25,7 +25,7 @@ class Process(BaseModel):
                                 help_text="是否自动重启")
     touch_timeout = IntegerField(default=10 * 365 * 24 * 3600,
                                  help_text="进程保活时间")
-    max_fail_count = IntegerField(default=3,
+    max_fail_count = IntegerField(default=3, null=True,
                                   help_text="默认最大失败次数，失败第4次时将不会重试")
     cstatus = IntegerField(default=1,
                            help_text="0 不启动, 1 可启动")

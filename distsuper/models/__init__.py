@@ -1,4 +1,5 @@
 #!-*- encoding: utf-8 -*-
+import sys
 from datetime import datetime
 
 from peewee import *
@@ -6,7 +7,17 @@ import pymysql
 
 from distsuper import CONFIG
 
-database = MySQLDatabase(
+if sys.version_info.major == 2:
+    from peewee import MySQLDatabase
+    from playhouse.shortcuts import RetryOperationalError
+
+
+    class MySQLDB(RetryOperationalError, MySQLDatabase):
+        pass
+else:
+    from peewee import MySQLDatabase as MySQLDB
+
+database = MySQLDB(
     CONFIG.DB.db,
     host=CONFIG.DB.host,
     port=CONFIG.DB.port,

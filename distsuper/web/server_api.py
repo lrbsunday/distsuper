@@ -31,7 +31,7 @@ def create(request_info):
     auto_start = request_info.get('auto_start', True)
     auto_restart = request_info.get('auto_restart', True)
     touch_timeout = request_info.get('touch_timeout', 10 * 365 * 24 * 3600)
-    max_fail_count = request_info.get('max_fail_count', 3)
+    max_fail_count = request_info.get('max_fail_count', 1)
     source = request_info.get('source', 'api')
     program_name = request_info['program_name']
     command = request_info['command']

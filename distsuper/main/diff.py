@@ -119,8 +119,9 @@ def diff_one(process):
     # 启动
     if cstatus == 1 and pstatus == 0:
         # 如果失败很多次，就不要启动了
-        if process.max_fail_count < process.fail_count:
-            logging.warning("%s连续失败次数达到%s次，不再重试" % (
+        if process.max_fail_count is not None and \
+                process.max_fail_count < process.fail_count:
+            logging.warning("%s连续失败次数超过%s次，不再重试" % (
                 process.name, process.max_fail_count))
             process.pstatus = 4
             process.update_time = tools.get_now_time()

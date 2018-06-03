@@ -21,7 +21,7 @@ def create_process(program_name, command,
     :param auto_restart: 是否自动重启
     :param machines: 可执行在哪些机器
     :param touch_timeout: 多长时间没有touch_db，认为超时
-    :param max_fail_count: 多少次失败后不再重试
+    :param max_fail_count: 超过多少次失败后不再重试
     :return:
         True  - 进程创建成功
         False - 进程创建失败

@@ -70,6 +70,7 @@ def create_program(program_name, command, machines,
                       max_fail_count=max_fail_count,
                       cstatus=int(auto_start),
                       pstatus=0,
+                      fail_count=0,
 
                       create_time=tools.get_now_time(),
                       update_time=tools.get_now_time())
@@ -133,6 +134,8 @@ def create_or_update_program(program_name, command, machines,
                       touch_timeout=touch_timeout,
                       max_fail_count=max_fail_count,
                       cstatus=int(auto_start),
+                      pstatus=0,
+                      fail_count=0,
 
                       create_time=tools.get_now_time(),
                       update_time=tools.get_now_time())
@@ -202,6 +205,7 @@ def start_program(program_id=None, program_name=None):
 
         fields = dict(cstatus=1,
                       pstatus=0,
+                      fail_count=0,
                       update_time=tools.get_now_time())
         ret_code = Process.update(**fields) \
             .where(Process.id == program_id,
