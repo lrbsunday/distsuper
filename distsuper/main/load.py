@@ -1,4 +1,5 @@
 #!-*- encoding: utf-8 -*-
+import sys
 import logging
 
 from distsuper import CONFIG
@@ -37,9 +38,14 @@ def load_config():
                                              fallback=10 * 365 * 24 * 3600)
         max_fail_count = CONFIG.config.getint(section_name, 'max_fail_count',
                                               fallback=3)
+        stdout_logfile = CONFIG.config.getint(section_name, 'stdout_logfile',
+                                              fallback='')
+        stderr_logfile = CONFIG.config.getint(section_name, 'stderr_logfile',
+                                              fallback='')
         create_or_update_program(program_name, command, machines,
                                  directory, environment,
                                  auto_start, auto_restart, touch_timeout,
-                                 max_fail_count, 'file')
+                                 max_fail_count, 'file',
+                                 stdout_logfile, stderr_logfile)
 
     delete_expire_data(start_time)

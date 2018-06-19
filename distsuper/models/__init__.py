@@ -17,6 +17,7 @@ if sys.version_info.major == 2:
 else:
     from peewee import MySQLDatabase as MySQLDB
 
+
 database = MySQLDB(
     CONFIG.DB.db,
     host=CONFIG.DB.host,

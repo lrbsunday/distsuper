@@ -61,6 +61,8 @@ def local_start(program_id, machine):
     directory = process.directory
     environment = process.environment
     touch_timeout = process.touch_timeout
+    stdout_logfile = process.stdout_logfile
+    stderr_logfile = process.stderr_logfile
     callbacks = {
         'success': success,
         'fail': fail,
@@ -75,7 +77,8 @@ def local_start(program_id, machine):
         'directory': directory,
         'environment': environment,
         'touch_timeout': touch_timeout,
-        'stdout_logfile': '.logs/test.log'
+        'stdout_logfile': stdout_logfile,
+        'stderr_logfile': stderr_logfile,
     }
     processwrapper.create_subprocess(command, info, callbacks)
 
@@ -167,8 +170,8 @@ def sigdefault(process, info, *args):
 
 # noinspection PyUnusedLocal
 def sigterm(process, info, *args):
-    process.terminate()
     program_id = info['program_id']
+
     fields = dict(pstatus=0,
                   update_time=tools.get_now_time())
     r = Process.update(**fields) \
@@ -176,9 +179,11 @@ def sigterm(process, info, *args):
                Process.pstatus << [1, 2]) \
         .execute()
     if r == 1:
-        logger.info("进程%s手动被SIG_TERM信号杀死" % (program_id,))
+        logger.info("进程%s被手动发出的SIG_TERM信号杀死" % (program_id,))
     else:
+        logger.info("进程%s被agent正常杀死，即将退出" % (program_id,))
         info['stop_flag'] = True
+    process.terminate()
 
 
 # noinspection PyUnusedLocal
@@ -186,6 +191,8 @@ def fail(args, retcode, info):
     if 'stop_flag' in info:
         return
     program_id = info['program_id']
+    logger.info("进程%s执行失败，退出状态码%s" % (program_id, retcode))
+
     fields = dict(pstatus=0,
                   fail_count=Process.fail_count + 1,
                   update_time=tools.get_now_time())

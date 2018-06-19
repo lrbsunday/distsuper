@@ -13,14 +13,14 @@ if sys.version_info.major == 2:
     sys.setdefaultencoding('utf-8')
 
 tools.get_logger(None, None, level=logging.INFO)
-# tools.get_logger('peewee', None, level=logging.DEBUG)
+tools.get_logger('peewee', 'logs/sql.log', level=logging.DEBUG)
 
 config_file_path = './distsuper.ini'
 if not os.path.exists(config_file_path):
     config_file_path = '/etc/distsuper.ini'
 
 config = configparser.ConfigParser()
-config.read(config_file_path)
+config.read(config_file_path, encoding='utf-8')
 
 
 class COMMON(object):

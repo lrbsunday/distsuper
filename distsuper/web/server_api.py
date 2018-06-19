@@ -32,6 +32,8 @@ def create(request_info):
     auto_restart = request_info.get('auto_restart', True)
     touch_timeout = request_info.get('touch_timeout', 10 * 365 * 24 * 3600)
     max_fail_count = request_info.get('max_fail_count', 1)
+    stdout_logfile = request_info.get('stdout_logfile', '')
+    stderr_logfile = request_info.get('stderr_logfile', '')
     source = request_info.get('source', 'api')
     program_name = request_info['program_name']
     command = request_info['command']
@@ -46,7 +48,8 @@ def create(request_info):
     program_id = create_program(program_name, command, machines,
                                 directory, environment,
                                 auto_start, auto_restart, touch_timeout,
-                                max_fail_count, source)
+                                max_fail_count, source,
+                                stdout_logfile, stderr_logfile)
 
     return {'program_id': program_id}
 

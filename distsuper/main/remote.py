@@ -14,7 +14,7 @@ def remote_start(program_id, machine):
         response = requests.post(url, json={
             "program_id": program_id,
             "machine": machine
-        }, timeout=3)
+        }, timeout=10)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return False
@@ -42,7 +42,7 @@ def remote_stop(program_id, machine):
     try:
         response = requests.post(url, json={
             "program_id": program_id
-        }, timeout=3)
+        }, timeout=10)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return False
@@ -78,7 +78,7 @@ def remote_status(program_id, machine):
     try:
         response = requests.post(url, json={
             "program_id": program_id
-        }, timeout=3)
+        }, timeout=10)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return None

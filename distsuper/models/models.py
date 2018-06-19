@@ -23,6 +23,12 @@ class Process(BaseModel):
                               help_text="是否自动启动")
     auto_restart = BooleanField(default=True,
                                 help_text="是否自动重启")
+    stdout_logfile = CharField(max_length=256,
+                               default='',
+                               help_text="标准输出文件")
+    stderr_logfile = CharField(max_length=256,
+                               default='',
+                               help_text="标准错误文件")
     touch_timeout = IntegerField(default=10 * 365 * 24 * 3600,
                                  help_text="进程保活时间")
     max_fail_count = IntegerField(default=3, null=True,
@@ -48,3 +54,11 @@ class Process(BaseModel):
     config_hash = CharField(max_length=32, default='',
                             help_text="配置hash值，据此判断配置更新时是否需要重启，"
                                       "md5(command,machines,touch_timeout)")
+
+
+class Test(BaseModel):
+    class Meta:
+        db_table = "test"
+
+    name = CharField(max_length=128, unique=True)
+    status = IntegerField(default=0)

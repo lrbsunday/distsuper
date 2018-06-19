@@ -11,6 +11,7 @@ def create_process(program_name, command,
                    directory=None, environment=None,
                    auto_start=True, auto_restart=True,
                    machines='127.0.0.1', touch_timeout=5,
+                   stdout_logfile='', stderr_logfile='',
                    max_fail_count=1):
     """ 创建一个进程，成功后接口立即返回，不等待进程启动
     :param program_name: 程序名称
@@ -21,6 +22,8 @@ def create_process(program_name, command,
     :param auto_restart: 是否自动重启
     :param machines: 可执行在哪些机器
     :param touch_timeout: 多长时间没有touch_db，认为超时
+    :param stdout_logfile:
+    :param stderr_logfile:
     :param max_fail_count: 超过多少次失败后不再重试
     :return:
         True  - 进程创建成功
@@ -38,6 +41,8 @@ def create_process(program_name, command,
             "touch_timeout": touch_timeout,
             "machines": machines,
             "max_fail_count": max_fail_count,
+            "stdout_logfile": stdout_logfile,
+            "stderr_logfile": stderr_logfile
         }, timeout=3)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)

@@ -10,7 +10,8 @@ from distsuper.common import tools, exceptions
 def create_program(program_name, command, machines,
                    directory, environment,
                    auto_start, auto_restart, touch_timeout,
-                   max_fail_count, source):
+                   max_fail_count, source,
+                   stdout_logfile, stderr_logfile):
     """ 创建program，直接返回，后续由distsuperd启动
         shell和api均可使用这个模式覆盖配置信息
         * 按program_name去重，重复的program将添加失败
@@ -24,6 +25,8 @@ def create_program(program_name, command, machines,
     :param touch_timeout:
     :param max_fail_count:
     :param source:
+    :param stdout_logfile:
+    :param stderr_logfile:
     :return:
     """
     config_hash = tools.get_config_hash(command, machines,
@@ -44,7 +47,10 @@ def create_program(program_name, command, machines,
                       cstatus=int(auto_start),
                       config_updated=0,
                       config_hash=config_hash,
-                      source=source)
+                      source=source,
+                      stdout_logfile=stdout_logfile,
+                      stderr_logfile=stderr_logfile,
+                      )
         program = Process(**fields)
         try:
             program.save()
@@ -71,6 +77,8 @@ def create_program(program_name, command, machines,
                       cstatus=int(auto_start),
                       pstatus=0,
                       fail_count=0,
+                      stdout_logfile=stdout_logfile,
+                      stderr_logfile=stderr_logfile,
 
                       create_time=tools.get_now_time(),
                       update_time=tools.get_now_time())
@@ -100,7 +108,8 @@ def create_program(program_name, command, machines,
 def create_or_update_program(program_name, command, machines,
                              directory, environment,
                              auto_start, auto_restart, touch_timeout,
-                             max_fail_count, source):
+                             max_fail_count, source,
+                             stdout_logfile, stderr_logfile):
     """ 创建program，直接返回，后续由distsuperd启动
         只有shell才能使用这个模式覆盖配置信息
         * 按program_name去重，重复的program将添加失败
@@ -114,13 +123,16 @@ def create_or_update_program(program_name, command, machines,
     :param touch_timeout:
     :param max_fail_count:
     :param source:
+    :param stdout_logfile:
+    :param stderr_logfile:
     :return:
     """
     try:
         return create_program(program_name, command, machines,
                               directory, environment,
                               auto_start, auto_restart, touch_timeout,
-                              max_fail_count, source)
+                              max_fail_count, source,
+                              stdout_logfile, stderr_logfile)
     except exceptions.AlreadExistsException as e:
         config_hash = tools.get_config_hash(command, machines,
                                             touch_timeout)
@@ -136,6 +148,9 @@ def create_or_update_program(program_name, command, machines,
                       cstatus=int(auto_start),
                       pstatus=0,
                       fail_count=0,
+                      source=source,
+                      stdout_logfile=stdout_logfile,
+                      stdoerr_logfile=stderr_logfile,
 
                       create_time=tools.get_now_time(),
                       update_time=tools.get_now_time())

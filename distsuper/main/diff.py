@@ -99,7 +99,7 @@ def diff_one(process):
     # 超时后重试
     if pstatus == 1:
         if datetime.datetime.now() - process.update_time > \
-                timedelta(seconds=10):
+                timedelta(seconds=60):
             logging.warning("%s启动超时，重试" % process.name)
             process.pstatus = 0
             process.update_time = tools.get_now_time()
@@ -108,7 +108,7 @@ def diff_one(process):
         return True
     if pstatus == 3:
         if datetime.datetime.now() - process.update_time > \
-                timedelta(seconds=10):
+                timedelta(seconds=60):
             logging.warning("%s停止超时，重试" % process.name)
             process.pstatus = 2
             process.update_time = tools.get_now_time()

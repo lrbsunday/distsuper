@@ -1,5 +1,6 @@
 #!-*- encoding: utf-8 -*-
 import os
+import sys
 import time
 import signal
 import logging
@@ -8,6 +9,7 @@ import subprocess
 from multiprocessing import Process
 
 from distsuper.models.models import Process as ProcessModel
+from distsuper.models import database
 
 
 def default_signal_handler(process, info, *args):
@@ -59,12 +61,17 @@ def register_signal_handlers(process, info, callbacks):
 def touch_db(program_name, pid, touch_timeout):
     logging.info("进程%s运行中..." % program_name)
     timeout_timestamp = int(time.time() + touch_timeout)
-    ret = ProcessModel.update(timeout_timestamp=timeout_timestamp) \
-        .where(ProcessModel.name == program_name,
-               ProcessModel.pid == pid) \
-        .execute()
+    # noinspection PyBroadException
+    try:
+        ret = ProcessModel.update(timeout_timestamp=timeout_timestamp) \
+            .where(ProcessModel.name == program_name,
+                   ProcessModel.pid == pid) \
+            .execute()
+    except Exception:
+        logging.exception("touch_db异常")
+        return False
     if ret == 0:
-        logging.warning("更新数据库失败，没有这条记录")
+        logging.warning("touch_db失败，没有这条记录，%s可能已停止" % program_name)
         return False
     return True
 
@@ -72,6 +79,7 @@ def touch_db(program_name, pid, touch_timeout):
 # noinspection PyBroadException
 def task_wrapper(args, info, callbacks):
     try:
+        database.close()
         info['pid'] = os.getpid()
         callbacks = callbacks or {}
         if 'sigdefault' not in callbacks:
@@ -90,7 +98,23 @@ def task_wrapper(args, info, callbacks):
             }
             env.update(environment)
 
-        process = subprocess.Popen(args, env=env, shell=True)
+        stdout_logfile = info.get('stdout_logfile', '')
+        stderr_logfile = info.get('stderr_logfile', '')
+        stdout = sys.stdout
+        stderr = sys.stderr
+        if stdout_logfile:
+            try:
+                stdout = open(stdout_logfile, 'w+')
+            except OSError:
+                logging.warning("无法打开文件%s，日志打印到标准输出" % stdout_logfile)
+        if stderr_logfile:
+            try:
+                stderr = open(stderr_logfile, 'w+')
+            except OSError:
+                logging.warning("无法打开文件%s，日志打印到标准错误" % stderr_logfile)
+
+        process = subprocess.Popen(args, env=env, shell=True,
+                                   stdout=stdout, stderr=stderr)
         register_signal_handlers(process, info, callbacks)
 
         def touch_db_loop(is_stop_info):
@@ -108,7 +132,10 @@ def task_wrapper(args, info, callbacks):
                                 info['touch_timeout']):
                         continue
                     else:
-                        process.terminate()
+                        try:
+                            process.terminate()
+                        except OSError:
+                            logging.warning("%s进程已停止" % info['program_name'])
                         break
 
         _is_stop_info = dict()
@@ -121,8 +148,9 @@ def task_wrapper(args, info, callbacks):
             if 'success' in callbacks and callable(
                     callbacks['success']):
                 callbacks['success'](args, retcode, info)
-        elif 'stop_flag' not in info:
-            if 'fail' in callbacks and callable(callbacks['fail']):
+        else:
+            if 'fail' in callbacks and callable(
+                    callbacks['fail']):
                 callbacks['fail'](args, retcode, info)
 
         thread.join()
