@@ -37,7 +37,7 @@ def sigterm(process, info, *args):
         logger.info("进程%s被手动发出的SIG_TERM信号杀死" % (program_id,))
     else:
         logger.info("进程%s被agent正常杀死，即将退出" % (program_id,))
-        info['stop_flag'] = True
+    info['stop_flag'] = True
     process.terminate()
 
 
