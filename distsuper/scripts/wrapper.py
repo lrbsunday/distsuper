@@ -1,15 +1,103 @@
 #!-*- encoding: utf-8 -*-
 import os
 import sys
+import json
 import time
 import signal
 import logging
 import threading
 import subprocess
-from multiprocessing import Process
 
 from distsuper.models.models import Process as ProcessModel
-from distsuper.models import database
+from distsuper.common import exceptions, tools
+from distsuper import CONFIG
+
+logger = tools.get_logger('agent', CONFIG.COMMON.agent_log_file_path,
+                          level=logging.INFO)
+
+
+def sigdefault(process, info, *args):
+    logger.info(args)
+    program_id = info['program_id']
+    logger.info("进程%s收到信号，即将退出" % program_id)
+    process.terminate()
+
+
+# noinspection PyUnusedLocal
+def sigterm(process, info, *args):
+    program_id = info['program_id']
+
+    fields = dict(pstatus=0,
+                  update_time=tools.get_now_time())
+    r = ProcessModel.update(**fields) \
+        .where(ProcessModel.id == program_id,
+               ProcessModel.pstatus << [1, 2]) \
+        .execute()
+    if r == 1:
+        logger.info("进程%s被手动发出的SIG_TERM信号杀死" % (program_id,))
+    else:
+        logger.info("进程%s被agent正常杀死，即将退出" % (program_id,))
+    info['stop_flag'] = True
+    process.terminate()
+
+
+# noinspection PyUnusedLocal
+def fail(args, retcode, info):
+    if 'stop_flag' in info:
+        return
+    program_id = info['program_id']
+
+    fields = dict(pstatus=0,
+                  fail_count=ProcessModel.fail_count + 1,
+                  update_time=tools.get_now_time())
+    r = ProcessModel.update(**fields) \
+        .where(ProcessModel.id == program_id,
+               ProcessModel.pstatus << [1, 2]) \
+        .execute()
+    if r == 0:
+        logger.warning("进程%s状态更新失败" % program_id)
+    else:
+        logger.info("进程%s执行失败，退出状态码%s" % (program_id, retcode))
+
+
+# noinspection PyUnusedLocal
+def success(args, retcode, info):
+    program_id = info['program_id']
+    fields = dict(pstatus=5,
+                  update_time=tools.get_now_time())
+    r = ProcessModel.update(**fields) \
+        .where(ProcessModel.id == program_id,
+               ProcessModel.pstatus << [1, 2]) \
+        .execute()
+    if r == 0:
+        logger.warning("进程%s状态更新失败" % program_id)
+    else:
+        logger.info("进程%s执行成功，退出状态码%s" % (program_id, retcode))
+
+
+# noinspection PyUnusedLocal
+def start_success(args, info):
+    program_id = info['program_id']
+    machine = info['machine']
+    pid = info['pid']
+    fields = dict(pstatus=2,
+                  machine=machine,
+                  pid=pid,
+
+                  fail_count=0,
+
+                  update_time=tools.get_now_time())
+    retcode = ProcessModel.update(**fields) \
+        .where(ProcessModel.id == program_id,
+               ProcessModel.pstatus == 1) \
+        .execute()
+    if retcode == 1:
+        msg = "进程%s启动成功" % program_id
+        logger.info(msg)
+    else:
+        msg = "进程%s启动失败，或状态改变导致数据库冲突，无法修改状态" % program_id
+        logger.error(msg)
+        raise exceptions.DBConflictException(msg)
 
 
 def default_signal_handler(process, info, *args):
@@ -77,9 +165,16 @@ def touch_db(program_name, pid, touch_timeout):
 
 
 # noinspection PyBroadException
-def task_wrapper(args, info, callbacks):
+def task_wrapper(args, info):
+    callbacks = {
+        'success': success,
+        'fail': fail,
+        'sigdefault': sigdefault,
+        'sigterm': sigterm,
+        'start_success': start_success
+    }
+
     try:
-        database.close()
         info['pid'] = os.getpid()
         callbacks = callbacks or {}
         if 'sigdefault' not in callbacks:
@@ -158,40 +253,7 @@ def task_wrapper(args, info, callbacks):
         logging.exception('task wrapper')
 
 
-def create_subprocess(args, info,
-                      callbacks=None):
-    p = Process(target=task_wrapper,
-                args=(args, info, callbacks))
-    p.start()
-    return p
-
-
-def success(args, *_):
-    print('success', args)
-
-
-def fail(args, *_):
-    print('fail', args)
-
-
-def sigint(args, *_):
-    print('sigint', args)
-
-
-if __name__ == '__main__':
-    # print('create')
-    # create_subprocess(['sleep', '1']).join()
-    # print('create')
-    # create_subprocess(['sleep', '1'], callbacks={'success': success}).join()
-    # print('create')
-    # create_subprocess(['sleep', '1'], callbacks={'fail': fail}).join()
-    print('create')
-    create_subprocess(['read_picture',
-                       '--username=admin',
-                       '--group=special',
-                       '--channel=cctv2'],
-                      '127.0.0.1',
-                      callbacks={
-                          'success': success,
-                          'fail': fail,
-                      }).join()
+def main():
+    args = json.loads(sys.argv[1])
+    info = json.loads(sys.argv[2])
+    task_wrapper(args, info)
