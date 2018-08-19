@@ -46,6 +46,7 @@ setup(
             'distsuperctl = distsuper.scripts.distsuperctl:main',
             'distsuperd = distsuper.scripts.distsuperd:main',
             'distsuperagent = distsuper.scripts.distsuperagent:main',
+            'dswrapper = distsuper.scripts.wrapper:main',
         ]
     },
     install_requires=['pymysql',

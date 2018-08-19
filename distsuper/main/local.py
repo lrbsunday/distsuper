@@ -1,5 +1,6 @@
 #!-*- encoding: utf-8 -*-
 import os
+import json
 import subprocess
 import time
 import logging
@@ -8,7 +9,6 @@ from peewee import DoesNotExist
 
 from distsuper.common import exceptions, tools
 from distsuper.models.models import Process
-from distsuper.web.common import processwrapper
 from distsuper import CONFIG
 
 logger = tools.get_logger('agent', CONFIG.COMMON.agent_log_file_path,
@@ -63,13 +63,6 @@ def local_start(program_id, machine):
     touch_timeout = process.touch_timeout
     stdout_logfile = process.stdout_logfile
     stderr_logfile = process.stderr_logfile
-    callbacks = {
-        'success': success,
-        'fail': fail,
-        'sigdefault': sigdefault,
-        'sigterm': sigterm,
-        'start_success': start_success
-    }
     info = {
         'machine': machine,
         'program_id': process.id,
@@ -80,7 +73,11 @@ def local_start(program_id, machine):
         'stdout_logfile': stdout_logfile,
         'stderr_logfile': stderr_logfile,
     }
-    processwrapper.create_subprocess(command, info, callbacks)
+    # processwrapper.create_subprocess(command, info)
+
+    args = json.dumps(command)
+    info = json.dumps(info)
+    subprocess.Popen(['dswrapper', args, info])
 
 
 def local_stop(program_id):
@@ -159,85 +156,3 @@ def get_status(program_id):
         if line.strip() == str(pid):
             return True
     return False
-
-
-def sigdefault(process, info, *args):
-    logger.info(args)
-    program_id = info['program_id']
-    logger.info("进程%s收到信号，即将退出" % program_id)
-    process.terminate()
-
-
-# noinspection PyUnusedLocal
-def sigterm(process, info, *args):
-    program_id = info['program_id']
-
-    fields = dict(pstatus=0,
-                  update_time=tools.get_now_time())
-    r = Process.update(**fields) \
-        .where(Process.id == program_id,
-               Process.pstatus << [1, 2]) \
-        .execute()
-    if r == 1:
-        logger.info("进程%s被手动发出的SIG_TERM信号杀死" % (program_id,))
-    else:
-        logger.info("进程%s被agent正常杀死，即将退出" % (program_id,))
-        info['stop_flag'] = True
-    process.terminate()
-
-
-# noinspection PyUnusedLocal
-def fail(args, retcode, info):
-    if 'stop_flag' in info:
-        return
-    program_id = info['program_id']
-    logger.info("进程%s执行失败，退出状态码%s" % (program_id, retcode))
-
-    fields = dict(pstatus=0,
-                  fail_count=Process.fail_count + 1,
-                  update_time=tools.get_now_time())
-    r = Process.update(**fields) \
-        .where(Process.id == program_id,
-               Process.pstatus << [1, 2]) \
-        .execute()
-    if r == 1:
-        logger.info("进程%s执行失败，退出状态码%s" % (program_id, retcode))
-
-
-# noinspection PyUnusedLocal
-def success(args, retcode, info):
-    program_id = info['program_id']
-    fields = dict(pstatus=5,
-                  update_time=tools.get_now_time())
-    r = Process.update(**fields) \
-        .where(Process.id == program_id,
-               Process.pstatus << [1, 2]) \
-        .execute()
-    logger.info("进程%s执行成功，退出状态码%s" % (program_id, retcode))
-    if r == 0:
-        logger.warning("进程%s状态更新失败" % program_id)
-
-
-# noinspection PyUnusedLocal
-def start_success(args, info):
-    program_id = info['program_id']
-    machine = info['machine']
-    pid = info['pid']
-    fields = dict(pstatus=2,
-                  machine=machine,
-                  pid=pid,
-
-                  fail_count=0,
-
-                  update_time=tools.get_now_time())
-    retcode = Process.update(**fields) \
-        .where(Process.id == program_id,
-               Process.pstatus == 1) \
-        .execute()
-    if retcode == 1:
-        msg = "进程%s启动成功" % program_id
-        logger.info(msg)
-    else:
-        msg = "进程%s启动失败，或状态改变导致数据库冲突，无法修改状态" % program_id
-        logger.error(msg)
-        raise exceptions.DBConflictException(msg)
