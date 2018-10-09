@@ -11,8 +11,7 @@ class Process(BaseModel):
                        help_text="配置来源：file/api，不能修改其他来源创建的program")
     name = CharField(max_length=128, unique=True,
                      help_text="进程名称")
-    command = CharField(max_length=256,
-                        help_text="启动命令")
+    command = TextField(help_text="启动命令")
     directory = CharField(max_length=256, null=True,
                           help_text="启动路径")
     environment = CharField(max_length=256, null=True,

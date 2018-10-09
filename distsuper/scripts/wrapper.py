@@ -20,7 +20,8 @@ def sigdefault(process, info, *args):
     logger.info(args)
     program_id = info['program_id']
     logger.info("进程%s收到信号，即将退出" % program_id)
-    process.terminate()
+    # process.terminate()
+    os.killpg(process.pid, signal.SIGKILL)
 
 
 # noinspection PyUnusedLocal
@@ -38,7 +39,8 @@ def sigterm(process, info, *args):
     else:
         logger.info("进程%s被agent正常杀死，即将退出" % (program_id,))
     info['stop_flag'] = True
-    process.terminate()
+    # process.terminate()
+    os.killpg(process.pid, signal.SIGKILL)
 
 
 # noinspection PyUnusedLocal
@@ -102,7 +104,8 @@ def start_success(args, info):
 
 def default_signal_handler(process, info, *args):
     print('Received signal: ', args, info)
-    process.terminate()
+    # process.terminate()
+    os.killpg(process.pid, signal.SIGKILL)
 
 
 def register_signal_handler(sig, callback, default_callback=None):
@@ -209,7 +212,8 @@ def task_wrapper(args, info):
                 logging.warning("无法打开文件%s，日志打印到标准错误" % stderr_logfile)
 
         process = subprocess.Popen(args, env=env, shell=True,
-                                   stdout=stdout, stderr=stderr)
+                                   stdout=stdout, stderr=stderr,
+                                   preexec_fn=os.setsid)
         register_signal_handlers(process, info, callbacks)
 
         def touch_db_loop(is_stop_info):
@@ -228,7 +232,8 @@ def task_wrapper(args, info):
                         continue
                     else:
                         try:
-                            process.terminate()
+                            # process.terminate()
+                            os.killpg(process.pid, signal.SIGKILL)
                         except OSError:
                             logging.warning("%s进程已停止" % info['program_name'])
                         break
