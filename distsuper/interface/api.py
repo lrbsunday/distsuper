@@ -3,8 +3,11 @@ import logging
 import json
 
 import requests
+from peewee import DoesNotExist
 
 from distsuper import CONFIG
+from distsuper.common import exceptions
+from distsuper.models.models import Process
 
 
 def create_process(program_name, command,
@@ -148,3 +151,64 @@ def stop_process(program_id=None, program_name=None):
         return None
 
     return True
+
+
+def restart_process(program_id=None, program_name=None):
+    """ 重启一个进程，直接调用agent接口去重启
+    :param program_id: 程序ID
+    :param program_name: 程序名称
+    :return:
+        True  - 进程重启成功
+        False - 进程重启失败
+        None  - 重复操作，忽略
+    """
+    if program_id is not None:
+        if '#' in program_id:
+            program_id = program_id.split('#')[-1]
+        try:
+            program_id = int(program_id)
+        except ValueError:
+            raise exceptions.ParamValueException("program_id格式不正确")
+    elif program_name is not None:
+        try:
+            program = Process.select().where(
+                Process.name == program_name).get()
+            program_id = program.id
+        except DoesNotExist:
+            msg = "程序%s的配置不存在" % program_name
+            logging.error(msg)
+            raise exceptions.NoConfigException(msg)
+    else:
+        msg = "请求参数缺少program_id/program_name"
+        logging.error(msg)
+        raise exceptions.LackParamException(msg)
+
+    url = "http://%s:%s/restart" % (CONFIG.COMMON.agent, CONFIG.AGENTHTTP.port)
+    try:
+        response = requests.post(url, json={
+            "program_id": program_id
+        }, timeout=3)
+    except requests.RequestException:
+        logging.error("接口请求失败: RequestException - %s" % url)
+        return False
+
+    if response.status_code != 200:
+        logging.error("接口请求失败: %s - %s" % (response.status_code, url))
+        return False
+
+    try:
+        r_dict = json.loads(response.text)
+    except ValueError:
+        logging.error("接口返回结果解析失败 - %s" % response.text)
+        return False
+
+    if "code" not in r_dict or r_dict["code"] not in (200, 515):
+        logging.error("接口状态码异常：%s - %s" % (
+            r_dict.get("code"), r_dict.get("dmsg")))
+        return False
+
+    if r_dict["code"] == 515:
+        return None
+
+    return True
+

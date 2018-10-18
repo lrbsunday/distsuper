@@ -28,7 +28,7 @@ if os.path.exists('dist'):
 
 setup(
     name="distsuper",
-    version="0.2.26",
+    version="0.2.27",
     description=(
         '仿照supervisor的功能实现的一个分布式进程监控工具，支持跨机器的进程失效转移'
     ),

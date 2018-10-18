@@ -189,7 +189,7 @@ def start_program(program_id=None, program_name=None):
             logging.error(msg)
             raise exceptions.LackParamException(msg)
     except DoesNotExist:
-        msg = "程序%s的配置不存在" % program_id
+        msg = "程序%s/%s的配置不存在" % (program_id, program_name)
         logging.error(msg)
         raise exceptions.NoConfigException(msg)
     else:
@@ -253,7 +253,7 @@ def stop_program(program_id=None, program_name=None):
             logging.error(msg)
             raise exceptions.LackParamException(msg)
     except DoesNotExist:
-        msg = "程序%s的配置不存在" % program_id
+        msg = "程序%s/%s的配置不存在" % (program_id, program_name)
         logging.error(msg)
         raise exceptions.NoConfigException(msg)
 

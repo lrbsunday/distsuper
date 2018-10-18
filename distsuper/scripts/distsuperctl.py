@@ -30,6 +30,14 @@ def stop(program_id):
 
 
 @main.command()
+@click.argument('program_id')
+def restart(program_id):
+    from distsuper.interface.shell import restart_process_by_shell
+
+    restart_process_by_shell(program_id, wait=True)
+
+
+@main.command()
 def status():
     from distsuper.interface.shell import get_status_by_shell
 

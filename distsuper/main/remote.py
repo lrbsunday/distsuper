@@ -65,6 +65,34 @@ def remote_stop(program_id, machine):
     return True
 
 
+def remote_restart(program_id, machine):
+    url = "http://%s:%s/restart" % (machine, CONFIG.AGENTHTTP.port)
+    try:
+        response = requests.post(url, json={
+            "program_id": program_id
+        }, timeout=10)
+    except requests.RequestException:
+        logging.error("接口请求失败: RequestException - %s" % url)
+        return False
+
+    if response.status_code != 200:
+        logging.error("接口请求失败: %s - %s" % (response.status_code, url))
+        return False
+
+    try:
+        r_dict = json.loads(response.text)
+    except ValueError:
+        logging.error("接口返回结果解析失败 - %s" % response.text)
+        return False
+
+    if "code" not in r_dict or r_dict["code"] != 200:
+        logging.error("接口状态码异常：%s - %s" % (
+            r_dict.get("code"), r_dict.get("dmsg")))
+        return False
+
+    return True
+
+
 def remote_status(program_id, machine):
     """
     :param program_id:

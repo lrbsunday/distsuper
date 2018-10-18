@@ -41,6 +41,15 @@ def stop_process_by_shell(program_id, wait=False):
     return True
 
 
+def restart_process_by_shell(program_id, wait=False):
+    ret = api.restart_process(program_id=program_id)
+    if not ret:
+        logging.warning("进程%s重启失败" % program_id)
+        return False
+
+    return True
+
+
 def get_status_by_shell():
     processes = Process.select() \
         .order_by(Process.cstatus, Process.pstatus)
