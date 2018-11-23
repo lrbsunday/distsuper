@@ -20,3 +20,7 @@ def test_case_02():
     用例描述：Test case 02
     """
     assert 0 == 0
+
+
+if __name__ == '__main__':
+    pytest.main(['-s', '-q'])
