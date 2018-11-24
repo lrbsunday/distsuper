@@ -4,6 +4,7 @@
 # @File    : test_case.py
 import allure
 import pytest
+import distsuper
 
 
 @allure.feature('test_module_01')
@@ -20,6 +21,22 @@ def test_case_02():
     用例描述：Test case 02
     """
     assert 0 == 0
+
+
+@allure.feature('test_module_02')
+def test_case_02():
+    """
+    用例描述：Test case 02
+    """
+    assert 0 == 0
+
+
+@allure.feature('test_module_03')
+def test_case_03():
+    """
+    用例描述：Test case 02
+    """
+    assert 1 == 1
 
 
 if __name__ == '__main__':
