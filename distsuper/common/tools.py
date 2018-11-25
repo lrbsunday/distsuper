@@ -1,4 +1,6 @@
 #!-*- encoding: utf-8 -*-
+""" 基础工具集
+"""
 import uuid
 import os
 import datetime
