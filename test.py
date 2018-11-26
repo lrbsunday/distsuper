@@ -30,5 +30,13 @@ def test_case_03():
     assert 1 == 1
 
 
+@allure.feature('test_module_04')
+def test_case_04():
+    """
+    用例描述：Test case 04
+    """
+    assert 1 == 1
+
+
 if __name__ == '__main__':
     pytest.main(['-s', '-q'])
