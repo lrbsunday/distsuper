@@ -4,6 +4,7 @@
 # @File    : test_case.py
 import allure
 import pytest
+import distsuper
 
 
 @allure.feature('test_module_01')
