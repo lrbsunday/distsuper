@@ -2,11 +2,11 @@
 # @Time    : 2018/8/17 上午10:10
 # @Author  : WangJuan
 # @File    : test_case.py
-import allure
+# import allure
 import pytest
 
 
-@allure.feature('test_module_01')
+# @allure.feature('test_module_01')
 def test_case_01():
     """
     用例描述：Test case 01
@@ -14,7 +14,7 @@ def test_case_01():
     assert True
 
 
-@allure.feature('test_module_02')
+# @allure.feature('test_module_02')
 def test_case_02():
     """
     用例描述：Test case 02
@@ -22,7 +22,7 @@ def test_case_02():
     assert 0 == 0
 
 
-@allure.feature('test_module_03')
+# @allure.feature('test_module_03')
 def test_case_03():
     """
     用例描述：Test case 03
@@ -30,7 +30,7 @@ def test_case_03():
     assert 1 == 1
 
 
-@allure.feature('test_module_04')
+# @allure.feature('test_module_04')
 def test_case_04():
     """
     用例描述：Test case 04
