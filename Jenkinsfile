@@ -26,6 +26,7 @@ pipeline {
             }
             steps {
                 echo 'Testing'
+                sh 'pip install pytest-allure'
                 sh 'py.test --verbose --junit-xml test-reports/results.xml --alluredir ${workspace}/allure-results test.py'
             }
             post {
