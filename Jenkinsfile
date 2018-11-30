@@ -26,11 +26,12 @@ pipeline {
             }
             steps {
                 echo 'Testing'
-                sh 'py.test --verbose --junit-xml test-reports/results.xml test.py'
+                sh 'py.test --verbose --junit-xml test-reports/results.xml --alluredir ${workspace}/allure-results test.py'
             }
             post {
                 always {
                     junit 'test-reports/results.xml'
+                    allure includeProperties: false, jdk: '', results: [[path: 'allure-results']]
                 }
             }
         }
