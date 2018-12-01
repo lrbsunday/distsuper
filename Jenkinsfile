@@ -20,14 +20,23 @@ pipeline {
             steps {
                 echo 'Testing'
                 sh 'virtualenv venv && . venv/bin/activate && pip install pylint pytest\\<4 pytest-allure-adaptor pytest-cov'
-                sh '. venv/bin/activate && py.test --verbose --junit-xml test-reports/results.xml --cov-report=html --cov=distsuper --alluredir allure-results test.py || exit 0'
-                sh '. venv/bin/activate && pylint --output-format=parseable distsuper > pylint.xml || exit 0'
+                sh '. venv/bin/activate && py.test --verbose --junit-xml test-reports/results.xml --cov-report=html --cov=distsuper --alluredir allure-results test.py || echo "py.test exited with $?"'
+                sh '. venv/bin/activate && pylint --output-format=parseable distsuper > pylint.xml || echo "pylint exited with $?"'
             }
             post {
                 always {
                     junit 'test-reports/results.xml'
                     allure includeProperties: false, jdk: '', results: [[path: 'allure-results']]
                     publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: true, reportDir: 'htmlcov', reportFiles: 'index.html', reportName: '代码覆盖率', reportTitles: '代码覆盖率'])
+                    step([
+                        $class                     : 'WarningsPublisher',
+                        parserConfigurations       : [[
+                                                              parserName: 'PYLint',
+                                                              pattern   : 'pylint.xml'
+                                                      ]],
+                        unstableTotalAll           : '0',
+                        usePreviousBuildAsReference: true
+                    ])
                 }
             }
         }
