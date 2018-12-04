@@ -53,7 +53,7 @@ setup(
                       'requests',
                       'uwsgi',
                       'flask',
-                      'peewee',
+                      'peewee>=3',
                       'click',
                       'configparser']
 )
