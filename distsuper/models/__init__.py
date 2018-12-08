@@ -29,14 +29,15 @@ def get_conn():
 
 
 def create_database(db):
-    sql = "create database %s" % db
+    sql = """CREATE DATABASE IF NOT EXISTS %s 
+            DEFAULT CHARSET utf8 COLLATE utf8_general_ci;""" % db
     conn = get_conn()
     cursor = conn.cursor()
     cursor.execute(sql)
 
 
 def drop_database(db):
-    sql = "drop database if exists %s" % db
+    sql = """DROP DATABASE IF EXISTS %s""" % db
     conn = get_conn()
     cursor = conn.cursor()
     cursor.execute(sql)
