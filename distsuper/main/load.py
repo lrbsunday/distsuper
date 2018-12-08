@@ -1,5 +1,4 @@
 #!-*- encoding: utf-8 -*-
-import sys
 import logging
 
 from distsuper import CONFIG
@@ -16,7 +15,7 @@ def delete_expire_data(start_time):
                Process.source == 'file').execute()
 
 
-def load_config():
+def load_task_config():
     start_time = tools.get_now_time()
 
     for section_name in CONFIG.programs:

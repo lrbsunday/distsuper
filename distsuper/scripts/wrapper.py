@@ -10,10 +10,9 @@ import subprocess
 
 from distsuper.models.models import Process as ProcessModel
 from distsuper.common import exceptions, tools
-from distsuper import CONFIG
 
-logger = tools.get_logger('agent', CONFIG.COMMON.agent_log_file_path,
-                          level=logging.INFO)
+logger = logging.getLogger("wrapper")
+logger.setLevel(logging.INFO)
 
 
 def sigdefault(process, info, *args):

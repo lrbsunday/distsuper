@@ -7,14 +7,16 @@ import requests
 from distsuper.common import tools, exceptions
 from distsuper import CONFIG
 
+API_TIMEOUT = 20
+
 
 def remote_start(program_id, machine):
-    url = "http://%s:%s/start" % (machine, CONFIG.AGENTHTTP.port)
+    url = "http://%s:%s/start" % (machine, CONFIG.DISTSUPERAGENT.port)
     try:
         response = requests.post(url, json={
             "program_id": program_id,
             "machine": machine
-        }, timeout=10)
+        }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return False
@@ -38,11 +40,11 @@ def remote_start(program_id, machine):
 
 
 def remote_stop(program_id, machine):
-    url = "http://%s:%s/stop" % (machine, CONFIG.AGENTHTTP.port)
+    url = "http://%s:%s/stop" % (machine, CONFIG.DISTSUPERAGENT.port)
     try:
         response = requests.post(url, json={
             "program_id": program_id
-        }, timeout=10)
+        }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return False
@@ -66,11 +68,11 @@ def remote_stop(program_id, machine):
 
 
 def remote_restart(program_id, machine):
-    url = "http://%s:%s/restart" % (machine, CONFIG.AGENTHTTP.port)
+    url = "http://%s:%s/restart" % (machine, CONFIG.DISTSUPERAGENT.port)
     try:
         response = requests.post(url, json={
             "program_id": program_id
-        }, timeout=10)
+        }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return False
@@ -102,11 +104,11 @@ def remote_status(program_id, machine):
         False 不存在
         None  未知
     """
-    url = "http://%s:%s/status" % (machine, CONFIG.AGENTHTTP.port)
+    url = "http://%s:%s/status" % (machine, CONFIG.DISTSUPERAGENT.port)
     try:
         response = requests.post(url, json={
             "program_id": program_id
-        }, timeout=10)
+        }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return None
@@ -145,7 +147,7 @@ def remote_check_only_once(machine, port, status):
     url = "http://%s:%s/check" % (machine, port)
     logging.info(url)
     try:
-        response = requests.get(url, timeout=1)
+        response = requests.get(url, timeout=API_TIMEOUT)
     except requests.Timeout:
         raise exceptions.RetryException
     except requests.RequestException:

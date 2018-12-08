@@ -9,6 +9,8 @@ from distsuper import CONFIG
 from distsuper.common import exceptions
 from distsuper.models.models import Process
 
+API_TIMEOUT = 30
+
 
 def create_process(program_name, command,
                    directory=None, environment=None,
@@ -32,7 +34,8 @@ def create_process(program_name, command,
         True  - 进程创建成功
         False - 进程创建失败
     """
-    url = "http://%s:%s/create" % (CONFIG.COMMON.server, CONFIG.SERVERHTTP.port)
+    url = "http://%s:%s/create" % (CONFIG.DISTSUPERCTL.host,
+                                   CONFIG.DISTSUPERCTL.port)
     try:
         response = requests.post(url, json={
             "program_name": program_name,
@@ -46,7 +49,7 @@ def create_process(program_name, command,
             "max_fail_count": max_fail_count,
             "stdout_logfile": stdout_logfile,
             "stderr_logfile": stderr_logfile
-        }, timeout=3)
+        }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return False
@@ -80,12 +83,13 @@ def start_process(program_id=None, program_name=None):
         False - 进程启动失败
         None  - 重复操作，忽略
     """
-    url = "http://%s:%s/start" % (CONFIG.COMMON.server, CONFIG.SERVERHTTP.port)
+    url = "http://%s:%s/start" % (CONFIG.DISTSUPERCTL.host,
+                                  CONFIG.DISTSUPERCTL.port)
     try:
         response = requests.post(url, json={
             "program_id": program_id,
             "program_name": program_name
-        }, timeout=3)
+        }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return False
@@ -122,12 +126,13 @@ def stop_process(program_id=None, program_name=None):
         False - 进程停止失败
         None  - 重复操作，忽略
     """
-    url = "http://%s:%s/stop" % (CONFIG.COMMON.server, CONFIG.SERVERHTTP.port)
+    url = "http://%s:%s/stop" % (CONFIG.DISTSUPERCTL.host,
+                                 CONFIG.DISTSUPERCTL.port)
     try:
         response = requests.post(url, json={
             "program_id": program_id,
             "program_name": program_name
-        }, timeout=3)
+        }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
         return False
@@ -162,53 +167,55 @@ def restart_process(program_id=None, program_name=None):
         False - 进程重启失败
         None  - 重复操作，忽略
     """
-    if program_id is not None:
-        if '#' in program_id:
-            program_id = program_id.split('#')[-1]
-        try:
-            program_id = int(program_id)
-        except ValueError:
-            raise exceptions.ParamValueException("program_id格式不正确")
-    elif program_name is not None:
-        try:
-            program = Process.select().where(
-                Process.name == program_name).get()
-            program_id = program.id
-        except DoesNotExist:
-            msg = "程序%s的配置不存在" % program_name
-            logging.error(msg)
-            raise exceptions.NoConfigException(msg)
-    else:
-        msg = "请求参数缺少program_id/program_name"
-        logging.error(msg)
-        raise exceptions.LackParamException(msg)
-
-    url = "http://%s:%s/restart" % (CONFIG.COMMON.agent, CONFIG.AGENTHTTP.port)
-    try:
-        response = requests.post(url, json={
-            "program_id": program_id
-        }, timeout=3)
-    except requests.RequestException:
-        logging.error("接口请求失败: RequestException - %s" % url)
-        return False
-
-    if response.status_code != 200:
-        logging.error("接口请求失败: %s - %s" % (response.status_code, url))
-        return False
-
-    try:
-        r_dict = json.loads(response.text)
-    except ValueError:
-        logging.error("接口返回结果解析失败 - %s" % response.text)
-        return False
-
-    if "code" not in r_dict or r_dict["code"] not in (200, 515):
-        logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("dmsg")))
-        return False
-
-    if r_dict["code"] == 515:
-        return None
-
-    return True
-
+    return (stop_process(program_id=program_id, program_name=program_name)
+            and start_process(program_id=program_id, program_name=program_name))
+    # if program_id is not None:
+    #     # if '#' in program_id:
+    #     #     program_id = program_id.split('#')[-1]
+    #     try:
+    #         program_id = int(program_id)
+    #     except ValueError:
+    #         raise exceptions.ParamValueException("program_id格式不正确")
+    # elif program_name is not None:
+    #     try:
+    #         program = Process.select().where(
+    #             Process.name == program_name).get()
+    #         program_id = program.id
+    #     except DoesNotExist:
+    #         msg = "程序%s的配置不存在" % program_name
+    #         logging.error(msg)
+    #         raise exceptions.NoConfigException(msg)
+    # else:
+    #     msg = "请求参数缺少program_id/program_name"
+    #     logging.error(msg)
+    #     raise exceptions.LackParamException(msg)
+    #
+    # url = "http://%s:%s/restart" % (CONFIG.DISTSUPERCTL.host,
+    #                                 CONFIG.DISTSUPERCTL.port)
+    # try:
+    #     response = requests.post(url, json={
+    #         "program_id": program_id
+    #     }, timeout=API_TIMEOUT)
+    # except requests.RequestException:
+    #     logging.error("接口请求失败: RequestException - %s" % url)
+    #     return False
+    #
+    # if response.status_code != 200:
+    #     logging.error("接口请求失败: %s - %s" % (response.status_code, url))
+    #     return False
+    #
+    # try:
+    #     r_dict = json.loads(response.text)
+    # except ValueError:
+    #     logging.error("接口返回结果解析失败 - %s" % response.text)
+    #     return False
+    #
+    # if "code" not in r_dict or r_dict["code"] not in (200, 515):
+    #     logging.error("接口状态码异常：%s - %s" % (
+    #         r_dict.get("code"), r_dict.get("dmsg")))
+    #     return False
+    #
+    # if r_dict["code"] == 515:
+    #     return None
+    #
+    # return True

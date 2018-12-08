@@ -12,7 +12,7 @@ from . import api
 def start_process_by_shell(program_id, wait=False):
     ret = api.start_process(program_id)
     if ret is None:
-        logging.warning("进程%s已启动，请不要重复操作")
+        logging.warning("进程%s已启动，请不要重复操作" % program_id)
         return True
 
     if not ret:
@@ -28,7 +28,7 @@ def start_process_by_shell(program_id, wait=False):
 def stop_process_by_shell(program_id, wait=False):
     ret = api.stop_process(program_id)
     if ret is None:
-        logging.warning("进程%s已停止，请不要重复操作")
+        logging.warning("进程%s已停止，请不要重复操作" % program_id)
         return True
 
     if not ret:
@@ -56,7 +56,7 @@ def get_status_by_shell():
 
     results = []
     for process in processes:
-        name = "%s#%s" % (process.name, process.id)
+        name = process.name
         status = caculate_status(process.pstatus)
         started = True if status in ('RUNNING', 'STOPPING') else False
         machine = 'machine:' + process.machine if started else ''
@@ -64,11 +64,12 @@ def get_status_by_shell():
         start_time = process.create_time.strftime(
             "%Y-%m-%dT%H:%M:%S") if started else ''
 
-        results.append([name, status, machine, pid, start_time])
+        results.append([str(process.id), name, status,
+                        machine, pid, start_time])
 
     if results:
         templates = []
-        for i in range(5):
+        for i in range(6):
             max_length = max(len(result[i]) for result in results)
             templates.append("%{}s".format(max_length))
 
@@ -94,7 +95,8 @@ def caculate_status(pstatus):
         return 'UNKNOWN'
 
 
-def wait_until_start_done(program_id):
+def wait_until_start_done(program_id, timeout=None):
+    try_count = 0
     while True:
         time.sleep(1)
 
@@ -110,8 +112,13 @@ def wait_until_start_done(program_id):
         if process.pstatus in (0, 1, 3):
             logging.info("等待进程%s启动" % program_id)
 
+        try_count += 1
+        if timeout is not None and try_count >= timeout:
+            return None
 
-def wait_until_stop_done(program_id):
+
+def wait_until_stop_done(program_id, timeout=None):
+    try_count = 0
     while True:
         time.sleep(1)
 
@@ -126,3 +133,7 @@ def wait_until_stop_done(program_id):
             return False
         if process.pstatus in (1, 2, 3):
             logging.info("等待进程%s停止" % program_id)
+
+        try_count += 1
+        if timeout is not None and try_count >= timeout:
+            return None

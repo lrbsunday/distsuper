@@ -46,9 +46,9 @@ def status():
 
 @main.command()
 def load():
-    from distsuper.main.load import load_config
+    from distsuper.main.load import load_task_config
 
-    load_config()
+    load_task_config()
 
 
 @main.command()
@@ -79,8 +79,8 @@ def init_config(force, path):
 def init_db():
     from distsuper import CONFIG
     from distsuper.models import create_database, drop_database
-    drop_database(CONFIG.DB.db)
-    create_database(CONFIG.DB.db)
+    drop_database(CONFIG.DATABASE.db)
+    create_database(CONFIG.DATABASE.db)
     from distsuper.models import database
     from distsuper.models.models import Process
     database.drop_tables([Process], safe=True)

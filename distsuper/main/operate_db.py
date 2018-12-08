@@ -7,6 +7,23 @@ from distsuper.models.models import Process
 from distsuper.common import tools, exceptions
 
 
+def get_program_by_id(program_id):
+    try:
+        program = Process.select().where(Process.id == program_id).get()
+    except DoesNotExist:
+        raise exceptions.ProgramNotExistInDB()
+    return program
+
+
+def get_program_by_name(program_name):
+    try:
+        program = Process.select().where(Process.name == program_name).get()
+    except DoesNotExist:
+        raise exceptions.ProgramNotExistInDB()
+    return program
+
+
+# todo 调用remote模块，同步管理进程
 def create_program(program_name, command, machines,
                    directory, environment,
                    auto_start, auto_restart, touch_timeout,
@@ -54,7 +71,7 @@ def create_program(program_name, command, machines,
         program = Process(**fields)
         try:
             program.save()
-            return "%s#%s" % (program.name, program.id)
+            return program.id
         except IntegrityError:
             msg = "数据库完整性错误, 请稍后重试"
             logging.exception(msg)
@@ -91,7 +108,7 @@ def create_program(program_name, command, machines,
                    Process.pstatus << [0, 4, 5]) \
             .execute()
         if ret_code == 1:
-            return "%s#%s" % (program.name, program.id)
+            return program.id
         else:
             msg = "程序%s的状态冲突，请稍后再试" % program_name
             logging.error(msg)
@@ -163,7 +180,7 @@ def create_or_update_program(program_name, command, machines,
                    Process.pstatus << [0, 4, 5]) \
             .execute()
         if ret_code == 1:
-            return "%s#%s" % (program.name, program.id)
+            return program.id
         else:
             msg = "程序%s的状态冲突，请稍后再试" % program_name
             logging.error(msg)

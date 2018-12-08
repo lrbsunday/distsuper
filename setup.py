@@ -8,10 +8,6 @@ from setuptools import setup, find_packages
 ssl._create_default_https_context = ssl._create_unverified_context
 
 
-# with open('requirements.txt') as fp:
-#     requirements = fp.readlines()
-
-
 def execute_commands(commands):
     for command in commands:
         command = command.strip()

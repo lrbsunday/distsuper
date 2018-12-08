@@ -1,14 +1,10 @@
 #!-*- encoding: utf-8 -*-
-import logging
-
-from distsuper.common import handlers, tools, exceptions
+from distsuper.common import handlers, exceptions
 from distsuper.main.operate_db import create_program, stop_program, \
-    start_program
-from distsuper import CONFIG
+    start_program, get_program_by_id
+from distsuper.main.diff import get_machine
+from distsuper.main.remote import remote_start, remote_stop
 from . import app
-
-logger = tools.get_logger('server', CONFIG.COMMON.server_log_file_path,
-                          level=logging.INFO)
 
 
 @app.route('/check', methods=['GET', 'POST'])
@@ -45,62 +41,96 @@ def create(request_info):
     if not program_name:
         raise exceptions.ParamValueException("program_name不能为空")
 
+    # 修改数据库
     program_id = create_program(program_name, command, machines,
                                 directory, environment,
                                 auto_start, auto_restart, touch_timeout,
                                 max_fail_count, source,
                                 stdout_logfile, stderr_logfile)
 
-    return {'program_id': program_id}
+    # 远程启动
+    program = get_program_by_id(program_id)
+    machine = get_machine(program)
+    ret = remote_start(program_id, machine)
+    if ret is None:
+        return {'program_id': program_id}
+    elif ret:
+        return {'program_id': program_id}
+    else:
+        raise exceptions.StartException()
 
 
 @app.route('/start', methods=['GET', 'POST'])
 @handlers.request_pre_handler()
 def start(request_info):
-    if request_info.get('program_id') is None and \
-            request_info.get('program_name') is None:
+    program_id = request_info.get('program_id')
+    program_name = request_info.get('program_name')
+
+    if program_id is None and program_name is None:
         raise exceptions.LackParamException("请求参数缺少program_id/program_name")
 
-    if request_info.get('program_id') is not None:
-        program_id = str(request_info['program_id'])
-        if '#' in program_id:
-            try:
-                _, program_id = program_id.split('#')
-            except ValueError:
-                raise exceptions.ParamValueException("program_id格式不正确")
+    # 修改数据库
+    if program_id is not None:
+        program_id = str(program_id)
+        # if '#' in program_id:
+        #     try:
+        #         _, program_id = program_id.split('#')
+        #     except ValueError:
+        #         raise exceptions.ParamValueException("program_id格式不正确")
         try:
             program_id = int(program_id)
         except ValueError:
             raise exceptions.ParamValueException("program_id格式不正确")
         start_program(program_id=program_id)
 
-    if request_info.get('program_name') is not None:
-        start_program(program_name=request_info['program_name'])
+    if program_name is not None:
+        start_program(program_name=program_name)
 
-    return {}
+    # 远程启动
+    program = get_program_by_id(program_id)
+    machine = get_machine(program)
+    ret = remote_start(program_id, machine)
+    if ret is None:
+        return {}
+    elif ret:
+        return {}
+    else:
+        raise exceptions.StartException()
 
 
 @app.route('/stop', methods=['GET', 'POST'])
 @handlers.request_pre_handler()
 def stop(request_info):
-    if request_info.get('program_id') is None and \
-            request_info.get('program_name') is None:
+    program_id = request_info.get('program_id')
+    program_name = request_info.get('program_name')
+
+    if program_id is None and program_name is None:
         raise exceptions.LackParamException("请求参数缺少program_id/program_name")
 
-    if request_info.get('program_id') is not None:
-        program_id = str(request_info['program_id'])
-        if '#' in program_id:
-            try:
-                _, program_id = program_id.split('#')
-            except ValueError:
-                raise exceptions.ParamValueException("program_id格式不正确")
+    # 修改数据库
+    if program_id is not None:
+        program_id = str(program_id)
+        # if '#' in program_id:
+        #     try:
+        #         _, program_id = program_id.split('#')
+        #     except ValueError:
+        #         raise exceptions.ParamValueException("program_id格式不正确")
         try:
             program_id = int(program_id)
         except ValueError:
             raise exceptions.ParamValueException("program_id格式不正确")
         stop_program(program_id=program_id)
 
-    if request_info.get('program_name') is not None:
-        stop_program(program_name=request_info['program_name'])
+    if program_name is not None:
+        stop_program(program_name=program_name)
 
-    return {}
+    # 远程停止
+    program = get_program_by_id(program_id)
+    machine = get_machine(program)
+    ret = remote_stop(program_id, machine)
+    if ret is None:
+        return {}
+    elif ret:
+        return {}
+    else:
+        raise exceptions.StopException()

@@ -11,18 +11,18 @@ from peewee import MySQLDatabase as MySQLDB
 
 
 database = MySQLDB(
-    CONFIG.DB.db,
-    host=CONFIG.DB.host,
-    port=CONFIG.DB.port,
-    user=CONFIG.DB.user,
-    password=CONFIG.DB.password,
+    CONFIG.DATABASE.db,
+    host=CONFIG.DATABASE.host,
+    port=CONFIG.DATABASE.port,
+    user=CONFIG.DATABASE.user,
+    password=CONFIG.DATABASE.password,
 )
 
 
 def get_conn():
-    connection = pymysql.connect(host=CONFIG.DB.host,
-                                 user=CONFIG.DB.user,
-                                 password=CONFIG.DB.password,
+    connection = pymysql.connect(host=CONFIG.DATABASE.host,
+                                 user=CONFIG.DATABASE.user,
+                                 password=CONFIG.DATABASE.password,
                                  charset='utf8',
                                  cursorclass=pymysql.cursors.DictCursor)
     return connection

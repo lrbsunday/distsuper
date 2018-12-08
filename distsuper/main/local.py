@@ -9,10 +9,9 @@ from peewee import DoesNotExist
 
 from distsuper.common import exceptions, tools
 from distsuper.models.models import Process
-from distsuper import CONFIG
+from distsuper.interface.shell import wait_until_start_done, wait_until_stop_done
 
-logger = tools.get_logger('agent', CONFIG.COMMON.agent_log_file_path,
-                          level=logging.INFO)
+logger = logging.getLogger('agent')
 
 
 def local_start(program_id, machine):
@@ -77,7 +76,20 @@ def local_start(program_id, machine):
 
     args = json.dumps(command)
     info = json.dumps(info)
+
     subprocess.Popen(['dswrapper', args, info])
+    # try:
+    #     retcode = subprocess.Popen(['dswrapper', args, info]).wait(timeout=3)
+    # except subprocess.TimeoutExpired:
+    #     retcode = 0
+    # if retcode != 0:
+    #     raise exceptions.StartException(dmsg="启动失败，错误码为%s" % retcode)
+
+    ret = wait_until_start_done(program_id, timeout=5)
+    if ret is None:
+        raise exceptions.StartException(dmsg="启动尚未结束")
+    if not ret:
+        raise exceptions.StartException(dmsg="启动失败，错误码为%s" % retcode)
 
 
 def local_stop(program_id):
@@ -145,21 +157,21 @@ def local_stop(program_id):
         raise exceptions.DBConflictException(msg)
 
 
-def local_restart(program_id):
-    try:
-        process = Process.select().where(Process.id == program_id).get()
-    except DoesNotExist:
-        msg = "找不到进程%s的配置数据，无法重启" % program_id
-        logger.warning(msg)
-        raise exceptions.NoConfigException(msg)
-
-    if process.pstatus == 0:
-        msg = "进程%s已停止，忽略本次请求" % program_id
-        logger.warning(msg)
-        raise exceptions.ProcessStatusException(msg)
-
-    args = ['kill', str(process.pid)]
-    subprocess.Popen(args).wait()
+# def local_restart(program_id):
+#     try:
+#         process = Process.select().where(Process.id == program_id).get()
+#     except DoesNotExist:
+#         msg = "找不到进程%s的配置数据，无法重启" % program_id
+#         logger.warning(msg)
+#         raise exceptions.NoConfigException(msg)
+#
+#     if process.pstatus == 0:
+#         msg = "进程%s已停止，忽略本次请求" % program_id
+#         logger.warning(msg)
+#         raise exceptions.ProcessStatusException(msg)
+#
+#     args = ['kill', str(process.pid)]
+#     subprocess.Popen(args).wait()
 
 
 def get_status(program_id):

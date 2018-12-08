@@ -128,6 +128,21 @@ class NoGroupException(BaseExc):
     msg = "机器组不存在"
 
 
+class StartException(BaseExc):
+    code = 523
+    msg = "程序启动异常"
+
+
+class StopException(BaseExc):
+    code = 524
+    msg = "程序停止异常"
+
+
+class ProgramNotExistInDB(BaseExc):
+    code = 525
+    msg = "程序在数据库中不存在"
+
+
 # 内部使用
 class RetryException(BaseExc):
     pass

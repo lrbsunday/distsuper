@@ -1,13 +1,7 @@
 #!-*- encoding: utf-8 -*-
-import logging
-
-from distsuper.common import handlers, tools, exceptions
-from distsuper.main.local import local_start, local_stop, get_status, local_restart
-from distsuper import CONFIG
+from distsuper.common import handlers, exceptions
+from distsuper.main.local import local_start, local_stop, get_status
 from . import app
-
-logger = tools.get_logger('agent', CONFIG.COMMON.agent_log_file_path,
-                          level=logging.INFO)
 
 
 @app.route('/check', methods=['GET', 'POST'])
@@ -43,16 +37,16 @@ def stop(request_info):
     return {}
 
 
-@app.route('/restart', methods=['GET', 'POST'])
-@handlers.request_pre_handler()
-def restart(request_info):
-    if 'program_id' not in request_info:
-        raise exceptions.LackParamException("请求参数缺少program_id")
-
-    program_id = request_info['program_id']
-    local_restart(program_id)
-
-    return {}
+# @app.route('/restart', methods=['GET', 'POST'])
+# @handlers.request_pre_handler()
+# def restart(request_info):
+#     if 'program_id' not in request_info:
+#         raise exceptions.LackParamException("请求参数缺少program_id")
+#
+#     program_id = request_info['program_id']
+#     local_restart(program_id)
+#
+#     return {}
 
 
 @app.route('/status', methods=['GET', 'POST'])

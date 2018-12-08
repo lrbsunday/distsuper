@@ -60,16 +60,19 @@ def diff():
             raise Exception(e)
 
 
-def get_best_machine(process):
+def get_machine(process):
     """ 随机挑一台可用机器
     :param process:
     :return:
     """
+    if process.machine:
+        return process.machine
+
     if process.machines:
         machines = process.machines.split(",")
         return random.choice(machines)
-    else:
-        return "localhost"
+
+    return "localhost"
 
 
 def diff_one(process):
@@ -127,22 +130,29 @@ def diff_one(process):
             process.update_time = tools.get_now_time()
             process.save()
             return False
-        best_machine = get_best_machine(process)
 
-        ret = remote_start(process.id, best_machine)
-        if ret:
-            logging.info("进程%s的启动请求已发出" % process.name)
-            return True
-        else:
-            logging.error("进程%s启动失败" % process.name)
-            return False
+        # 任务已经建立超过一分钟，但是仍然没有启动，diff介入
+        if datetime.datetime.now() - process.update_time > \
+                timedelta(seconds=60):
+            best_machine = get_machine(process)
+
+            ret = remote_start(process.id, best_machine)
+            if ret:
+                logging.info("进程%s的启动请求已发出" % process.name)
+                return True
+            else:
+                logging.error("进程%s启动失败" % process.name)
+                return False
 
     # 停止
     if cstatus == 0 and pstatus == 2:
-        ret = remote_stop(process.id, process.machine)
-        if ret:
-            logging.info("进程%s的停止请求已发出" % process.name)
-            return True
-        else:
-            logging.error("进程%s停止失败" % process.name)
-            return False
+        # 任务已经建立超过一分钟，但是仍然没有启动，diff介入
+        if datetime.datetime.now() - process.update_time > \
+                timedelta(seconds=60):
+            ret = remote_stop(process.id, process.machine)
+            if ret:
+                logging.info("进程%s的停止请求已发出" % process.name)
+                return True
+            else:
+                logging.error("进程%s停止失败" % process.name)
+                return False
