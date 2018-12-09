@@ -1,0 +1,46 @@
+version: "3"
+
+services:
+  database:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=lrbsunday
+    ports:
+      - 3306:3306
+
+  distsuperd:
+    image: distsuperd
+    build:
+      context: .
+      dockerfile: docker/distsuperd/Dockerfile
+    ports:
+      - 3378:3378
+    links:
+      - database
+    volumes:
+      - .:/home/distsuper
+      - ./distsuper.ini:/etc/distsuper.ini
+    entrypoint:
+      - ./docker/distsuperd/entrypoint.sh
+    command: ["distsuperd", "start"]
+
+  distsuperagent:
+    image: distsuperagent
+    build:
+      context: .
+      dockerfile: docker/distsuperagent/Dockerfile
+    ports:
+      - 3379:3379
+    links:
+      - database
+    volumes:
+      - .:/home/distsuper
+      - ./distsuper.ini:/etc/distsuper.ini
+    entrypoint:
+      - ./docker/distsuperagent/entrypoint.sh
+# 下面三种写法均可
+    command: ["distsuperagent", "start"]
+#    command: distsuperagent start
+#    command:
+#      - distsuperagent
+#      - start

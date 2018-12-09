@@ -7,6 +7,17 @@ import click
 
 from distsuper.scripts.common import check_config
 
+"""
+distsuperctl start {id}
+distsuperctl stop {id}
+distsuperctl restart {id}
+distsuperctl status
+distsuperctl load  # 加载任务配置到数据库
+distsuperctl init db [--drop]  # 初始化数据库
+distsuperctl init config  # 初始化配置文件
+
+"""
+
 
 @click.group()
 def main():
@@ -56,10 +67,11 @@ def load():
                 type=click.Choice(['db', 'config', 'all']))
 @click.argument('path', default='.')
 @click.option('--force', '-f', is_flag=True)
-def init(obj, path, force=False):
+@click.option('--drop', '-d', is_flag=True)
+def init(obj, path, force=False, drop=False):
     if obj == 'db':
         check_config()
-        init_db()
+        init_db(drop)
     elif obj == 'config':
         init_config(force, path)
 
@@ -76,14 +88,15 @@ def init_config(force, path):
         os.system("cp -f %s %s" % (orig_file_path, dest_file_path))
 
 
-def init_db():
+def init_db(drop):
     from distsuper import CONFIG
-    from distsuper.models import create_database, drop_database
-    drop_database(CONFIG.DATABASE.db)
-    create_database(CONFIG.DATABASE.db)
-    from distsuper.models import database
+    from distsuper.models import create_database, drop_database, database
     from distsuper.models.models import Process
-    database.drop_tables([Process], safe=True)
+
+    if drop:
+        drop_database(CONFIG.DATABASE.db)
+
+    create_database(CONFIG.DATABASE.db)
     database.create_tables([Process])
 
 
