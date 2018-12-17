@@ -2,7 +2,8 @@
 from playhouse.shortcuts import model_to_dict
 
 from distsuper.common import handlers, exceptions
-from distsuper.main import remote, operate
+from distsuper.main import operate
+from distsuper.api import agent
 from . import app
 
 
@@ -66,7 +67,7 @@ def create(request_info):
                                         stdout_logfile, stderr_logfile)
 
     machine = get_best_machine(machines)
-    info = remote.remote_start(program_id, machine)
+    info = agent.start_process(program_id, machine)
 
     if info:
         operate.start_program(info, program_id=program_id)
@@ -95,7 +96,7 @@ def start(request_info):
                                   program_name=program_name,
                                   status=0)
     machine = get_best_machine(program.machines)
-    info = remote.remote_start(program_id, machine)
+    info = agent.start_process(program_id, machine)
 
     if info:
         operate.start_program(info, program_id=program_id)

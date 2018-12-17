@@ -37,18 +37,6 @@ def stop(request_info):
     return {}
 
 
-# @app.route('/restart', methods=['GET', 'POST'])
-# @handlers.request_pre_handler()
-# def restart(request_info):
-#     if 'program_id' not in request_info:
-#         raise exceptions.LackParamException("请求参数缺少program_id")
-#
-#     program_id = request_info['program_id']
-#     local_restart(program_id)
-#
-#     return {}
-
-
 @app.route('/status', methods=['GET', 'POST'])
 @handlers.request_pre_handler()
 def _status(request_info):

@@ -6,7 +6,7 @@ import logging
 import click
 
 from distsuper.scripts.common import check_config
-from distsuper.interface import api
+from distsuper.api import server as sa
 
 """
 distsuperctl start {id}
@@ -26,7 +26,7 @@ def main():
 @main.command()
 @click.argument('program_id')
 def start(program_id):
-    if api.start_process(program_id=program_id):
+    if sa.start_process(program_id=program_id):
         logging.info("进程启动成功")
     else:
         logging.info("进程启动失败")
@@ -35,7 +35,7 @@ def start(program_id):
 @main.command()
 @click.argument('program_id')
 def stop(program_id):
-    if api.stop_process(program_id=program_id):
+    if sa.stop_process(program_id=program_id):
         logging.info("进程停止成功")
     else:
         logging.info("进程停止失败")
@@ -44,7 +44,7 @@ def stop(program_id):
 @main.command()
 @click.argument('program_id')
 def restart(program_id):
-    if api.restart_process(program_id=program_id):
+    if sa.restart_process(program_id=program_id):
         logging.info("进程重启成功")
     else:
         logging.info("进程重启失败")
@@ -52,7 +52,7 @@ def restart(program_id):
 
 @main.command()
 def status():
-    processes = api.get_process()
+    processes = sa.get_process()
 
     results = []
     for process in processes:

@@ -157,23 +157,6 @@ def local_stop(program_id):
         raise exceptions.DBConflictException(msg)
 
 
-# def local_restart(program_id):
-#     try:
-#         process = Process.select().where(Process.id == program_id).get()
-#     except DoesNotExist:
-#         msg = "找不到进程%s的配置数据，无法重启" % program_id
-#         logger.warning(msg)
-#         raise exceptions.NoConfigException(msg)
-#
-#     if process.pstatus == 0:
-#         msg = "进程%s已停止，忽略本次请求" % program_id
-#         logger.warning(msg)
-#         raise exceptions.ProcessStatusException(msg)
-#
-#     args = ['kill', str(process.pid)]
-#     subprocess.Popen(args).wait()
-
-
 def get_status(program_id):
     try:
         process = Process.select().where(Process.id == program_id).get()

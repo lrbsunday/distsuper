@@ -7,7 +7,7 @@ import sys
 import click
 
 from distsuper.scripts.common import check_config
-from distsuper.main.remote import remote_check
+from distsuper.api.check import check_service_status
 from distsuper import CONFIG
 
 
@@ -29,9 +29,9 @@ def start(force=False):
     env = os.environ
     env.update({'DISTSUPER_MODULE_NAME': 'server'})
     ret = subprocess.Popen(args, env=env).wait()
-    if ret == 0 and remote_check(CONFIG.DISTSUPERCTL.host,
-                                 CONFIG.DISTSUPERD.port,
-                                 'STARTING'):
+    if ret == 0 and check_service_status(CONFIG.DISTSUPERCTL.host,
+                                         CONFIG.DISTSUPERD.port,
+                                         'STARTING'):
         logging.info("server启动成功")
     else:
         logging.info("server启动失败")
@@ -46,9 +46,9 @@ def stop(force=False):
         sys.exit(-1)
     args = 'uwsgi --stop {}'.format(CONFIG.DISTSUPERD.pid_file_path).split()
     ret = subprocess.Popen(args).wait()
-    if ret == 0 and not remote_check(CONFIG.DISTSUPERCTL.host,
-                                     CONFIG.DISTSUPERD.port,
-                                     'STOPPING'):
+    if ret == 0 and not check_service_status(CONFIG.DISTSUPERCTL.host,
+                                             CONFIG.DISTSUPERD.port,
+                                             'STOPPING'):
         logging.info("server停止成功")
     else:
         logging.info("server停止失败")
@@ -63,9 +63,9 @@ def restart(force=False):
         sys.exit(-1)
     args = 'uwsgi --reload {}'.format(CONFIG.DISTSUPERD.pid_file_path).split()
     ret = subprocess.Popen(args).wait()
-    if ret == 0 and remote_check(CONFIG.DISTSUPERCTL.host,
-                                 CONFIG.DISTSUPERD.port,
-                                 'STARTING'):
+    if ret == 0 and check_service_status(CONFIG.DISTSUPERCTL.host,
+                                         CONFIG.DISTSUPERD.port,
+                                         'STARTING'):
         logging.info("server重启成功")
     else:
         logging.info("server重启失败")

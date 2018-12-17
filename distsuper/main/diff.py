@@ -6,7 +6,7 @@ import random
 from datetime import timedelta
 
 from distsuper.common import tools
-from distsuper.main.remote import remote_start, remote_stop, remote_status
+from distsuper.api.agent import start_process, stop_process, check_status
 from distsuper.models.models import Process
 
 
@@ -86,7 +86,7 @@ def diff_one(process):
     # 无需处理
     if cstatus == 1 and pstatus == 2:
         if process.timeout_timestamp < now_timestamp:
-            if not remote_status(process.id, process.machine):
+            if not check_status(process.id, process.machine):
                 retcode = Process.update(pstatus=0) \
                     .where(Process.id == process.id,
                            Process.pstatus == 2,
@@ -136,7 +136,7 @@ def diff_one(process):
                 timedelta(seconds=60):
             best_machine = get_machine(process)
 
-            ret = remote_start(process.id, best_machine)
+            ret = start_process(process.id, best_machine)
             if ret:
                 logging.info("进程%s的启动请求已发出" % process.name)
                 return True
@@ -149,7 +149,7 @@ def diff_one(process):
         # 任务已经建立超过一分钟，但是仍然没有启动，diff介入
         if datetime.datetime.now() - process.update_time > \
                 timedelta(seconds=60):
-            ret = remote_stop(process.id, process.machine)
+            ret = stop_process(process.id, process.machine)
             if ret:
                 logging.info("进程%s的停止请求已发出" % process.name)
                 return True
