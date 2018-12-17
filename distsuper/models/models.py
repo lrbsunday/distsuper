@@ -33,10 +33,12 @@ class Process(BaseModel):
                                   help_text="默认最大失败次数，失败第4次时将不会重试")
 
     # 运行状态
-    status = IntegerField(default=1,
-                          help_text="0 停止中, 1 运行中")
+    machine = CharField(max_length=256,
+                        help_text="实际执行程序的机器")
     pid = IntegerField(default=0,
                        help_text="进程ID")
+    status = IntegerField(default=1,
+                          help_text="0 停止中, 1 运行中")
     fail_count = IntegerField(default=0,
                               help_text="当前失败次数")
     timeout_timestamp = IntegerField(default=0x7FFFFFFF,

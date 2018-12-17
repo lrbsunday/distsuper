@@ -57,14 +57,14 @@ def status():
     results = []
     for process in processes:
         name = process["name"]
-        status = process["status"]
-        machine = 'machine:' + process.machine if status else ''
-        pid = 'pid:' + str(process.pid) if status == 1 else ''
+        _status = process["status"]
+        machine = 'machine:' + process.machine if _status else ''
+        pid = 'pid:' + str(process.pid) if _status == 1 else ''
         start_time = process.create_time.strftime(
-            "%Y-%m-%dT%H:%M:%S") if status == 1 else ''
+            "%Y-%m-%dT%H:%M:%S") if _status == 1 else ''
         command = process["command"]
 
-        results.append([str(process.id), name, status,
+        results.append([str(process.id), name, _status,
                         machine, pid, start_time, command])
 
     if results:
