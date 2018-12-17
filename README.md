@@ -18,8 +18,6 @@ pip install distsuper
 distsuperctl init config .
 # 初始化数据库，将根据distsuper.ini配置的数据库，初始化数据库和表结构
 distsuperctl init db
-# 加载任务配置
-distsuperctl load
 # 启动服务端进程
 distsuperd start
 ```
@@ -56,8 +54,6 @@ distsuperd start
 distsuperctl init config .
 # 初始化数据库，将根据distsuper.ini配置的数据库，初始化数据库和表结构
 distsuperctl init db
-# 加载任务配置
-distsuperctl load
 # 状态查看
 distsuperctl status
 # 启动

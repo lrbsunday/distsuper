@@ -6,16 +6,15 @@ import logging
 import click
 
 from distsuper.scripts.common import check_config
+from distsuper.interface import api
 
 """
 distsuperctl start {id}
 distsuperctl stop {id}
 distsuperctl restart {id}
 distsuperctl status
-distsuperctl load  # 加载任务配置到数据库
 distsuperctl init db [--drop]  # 初始化数据库
 distsuperctl init config  # 初始化配置文件
-
 """
 
 
@@ -27,39 +26,57 @@ def main():
 @main.command()
 @click.argument('program_id')
 def start(program_id):
-    from distsuper.interface.shell import start_process_by_shell
-
-    start_process_by_shell(program_id, wait=True)
+    if api.start_process(program_id=program_id):
+        logging.info("进程启动成功")
+    else:
+        logging.info("进程启动失败")
 
 
 @main.command()
 @click.argument('program_id')
 def stop(program_id):
-    from distsuper.interface.shell import stop_process_by_shell
-
-    stop_process_by_shell(program_id, wait=True)
+    if api.stop_process(program_id=program_id):
+        logging.info("进程停止成功")
+    else:
+        logging.info("进程停止失败")
 
 
 @main.command()
 @click.argument('program_id')
 def restart(program_id):
-    from distsuper.interface.shell import restart_process_by_shell
-
-    restart_process_by_shell(program_id, wait=True)
+    if api.restart_process(program_id=program_id):
+        logging.info("进程重启成功")
+    else:
+        logging.info("进程重启失败")
 
 
 @main.command()
 def status():
-    from distsuper.interface.shell import get_status_by_shell
+    processes = api.get_process()
 
-    get_status_by_shell()
+    results = []
+    for process in processes:
+        name = process["name"]
+        status = process["status"]
+        machine = 'machine:' + process.machine if status else ''
+        pid = 'pid:' + str(process.pid) if status == 1 else ''
+        start_time = process.create_time.strftime(
+            "%Y-%m-%dT%H:%M:%S") if status == 1 else ''
+        command = process["command"]
 
+        results.append([str(process.id), name, status,
+                        machine, pid, start_time, command])
 
-@main.command()
-def load():
-    from distsuper.main.load import load_task_config
+    if results:
+        templates = []
+        for i in range(7):
+            max_length = max(len(result[i]) for result in results)
+            templates.append("%{}s".format(max_length))
 
-    load_task_config()
+        for result in results:
+            print('\t'.join([template % field
+                             for field, template in
+                             zip(result, templates)]))
 
 
 @main.command()

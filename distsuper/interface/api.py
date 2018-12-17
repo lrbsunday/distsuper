@@ -3,11 +3,8 @@ import logging
 import json
 
 import requests
-from peewee import DoesNotExist
 
 from distsuper import CONFIG
-from distsuper.common import exceptions
-from distsuper.models.models import Process
 
 API_TIMEOUT = 30
 
@@ -15,24 +12,25 @@ API_TIMEOUT = 30
 def create_process(program_name, command,
                    directory=None, environment=None,
                    auto_start=True, auto_restart=True,
-                   machines='127.0.0.1', touch_timeout=5,
-                   stdout_logfile='', stderr_logfile='',
+                   machines='127.0.0.1',
+                   touch_timeout=5,
+                   stdout_logfile='/dev/null', stderr_logfile='/dev/null',
                    max_fail_count=1):
-    """ 创建一个进程，成功后接口立即返回，不等待进程启动
-    :param program_name: 程序名称
+    """ 创建一个进程
+    :param program_name: 程序名称，不能重复
     :param command: 执行的命令(shell script)
     :param directory: 启动路径
-    :param environment: 环境变量A=a;B=b;C=c
+    :param environment: 环境变量，多个分号分隔，如：A=a;B=b;C=c
     :param auto_start: 是否自启动
     :param auto_restart: 是否自动重启
-    :param machines: 可执行在哪些机器
-    :param touch_timeout: 多长时间没有touch_db，认为超时
-    :param stdout_logfile:
-    :param stderr_logfile:
+    :param machines: 可执行在哪些机器，多个分号分隔，如：machines='127.0.0.1;localhost'
+    :param touch_timeout: 多长时间没有touch_db，认为超时，单位秒
+    :param stdout_logfile: 标准输出存储的日志文件
+    :param stderr_logfile: 标准错误存储的日志文件
     :param max_fail_count: 超过多少次失败后不再重试
     :return:
-        True  - 进程创建成功
-        False - 进程创建失败
+        > 0  - dpid
+        = 0  - 进程创建失败
     """
     url = "http://%s:%s/create" % (CONFIG.DISTSUPERCTL.host,
                                    CONFIG.DISTSUPERCTL.port)
@@ -52,36 +50,33 @@ def create_process(program_name, command,
         }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("接口请求失败: RequestException - %s" % url)
-        return False
+        return 0
 
     if response.status_code != 200:
         logging.error("接口请求失败: %s - %s" % (response.status_code, url))
-        return False
+        return 0
 
     try:
         r_dict = json.loads(response.text)
     except ValueError:
         logging.error("接口返回结果解析失败 - %s" % response.text)
-        return False
+        return 0
 
     if "code" not in r_dict or r_dict["code"] != 200:
         logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("dmsg")))
-        return False
+            r_dict["code"], r_dict["dmsg"]))
+        return 0
 
-    return r_dict["data"].get("program_id", "")
+    return r_dict["data"]["program_id"]
 
 
 def start_process(program_id=None, program_name=None):
-    """ 启动一个进程（只修改数据库状态），成功后接口立即返回，不等待进程真正启动
-        后续进程的启动由distsuperd保证
-        以后考虑增加状态回调功能
+    """ 启动一个处于停止状态的进程
     :param program_id: 程序ID
     :param program_name: 程序名称
     :return:
-        True  - 进程启动成功
+        True  - 进程启动成功或已启动
         False - 进程启动失败
-        None  - 重复操作，忽略
     """
     url = "http://%s:%s/start" % (CONFIG.DISTSUPERCTL.host,
                                   CONFIG.DISTSUPERCTL.port)
@@ -106,11 +101,8 @@ def start_process(program_id=None, program_name=None):
 
     if "code" not in r_dict or r_dict["code"] not in (200, 515):
         logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("dmsg")))
+            r_dict["code"], r_dict["dmsg"]))
         return False
-
-    if r_dict["code"] == 515:
-        return None
 
     return True
 
@@ -122,9 +114,8 @@ def stop_process(program_id=None, program_name=None):
     :param program_id: 程序ID
     :param program_name: 程序名称
     :return:
-        True  - 进程停止成功
+        True  - 进程停止成功或已停止
         False - 进程停止失败
-        None  - 重复操作，忽略
     """
     url = "http://%s:%s/stop" % (CONFIG.DISTSUPERCTL.host,
                                  CONFIG.DISTSUPERCTL.port)
@@ -149,11 +140,8 @@ def stop_process(program_id=None, program_name=None):
 
     if "code" not in r_dict or r_dict["code"] not in (200, 515):
         logging.error("接口状态码异常：%s - %s" % (
-            r_dict.get("code"), r_dict.get("dmsg")))
+            r_dict["code"], r_dict["dmsg"]))
         return False
-
-    if r_dict["code"] == 515:
-        return None
 
     return True
 
@@ -165,57 +153,41 @@ def restart_process(program_id=None, program_name=None):
     :return:
         True  - 进程重启成功
         False - 进程重启失败
-        None  - 重复操作，忽略
     """
     return (stop_process(program_id=program_id, program_name=program_name)
             and start_process(program_id=program_id, program_name=program_name))
-    # if program_id is not None:
-    #     # if '#' in program_id:
-    #     #     program_id = program_id.split('#')[-1]
-    #     try:
-    #         program_id = int(program_id)
-    #     except ValueError:
-    #         raise exceptions.ParamValueException("program_id格式不正确")
-    # elif program_name is not None:
-    #     try:
-    #         program = Process.select().where(
-    #             Process.name == program_name).get()
-    #         program_id = program.id
-    #     except DoesNotExist:
-    #         msg = "程序%s的配置不存在" % program_name
-    #         logging.error(msg)
-    #         raise exceptions.NoConfigException(msg)
-    # else:
-    #     msg = "请求参数缺少program_id/program_name"
-    #     logging.error(msg)
-    #     raise exceptions.LackParamException(msg)
-    #
-    # url = "http://%s:%s/restart" % (CONFIG.DISTSUPERCTL.host,
-    #                                 CONFIG.DISTSUPERCTL.port)
-    # try:
-    #     response = requests.post(url, json={
-    #         "program_id": program_id
-    #     }, timeout=API_TIMEOUT)
-    # except requests.RequestException:
-    #     logging.error("接口请求失败: RequestException - %s" % url)
-    #     return False
-    #
-    # if response.status_code != 200:
-    #     logging.error("接口请求失败: %s - %s" % (response.status_code, url))
-    #     return False
-    #
-    # try:
-    #     r_dict = json.loads(response.text)
-    # except ValueError:
-    #     logging.error("接口返回结果解析失败 - %s" % response.text)
-    #     return False
-    #
-    # if "code" not in r_dict or r_dict["code"] not in (200, 515):
-    #     logging.error("接口状态码异常：%s - %s" % (
-    #         r_dict.get("code"), r_dict.get("dmsg")))
-    #     return False
-    #
-    # if r_dict["code"] == 515:
-    #     return None
-    #
-    # return True
+
+
+def get_process(program_id=None, program_name=None):
+    """ 查询一个进程
+    :param program_id: 程序ID
+    :param program_name: 程序名称
+    :return: 进程信息字典，失败返回None
+    """
+    url = "http://%s:%s/status" % (CONFIG.DISTSUPERCTL.host,
+                                   CONFIG.DISTSUPERCTL.port)
+    try:
+        response = requests.post(url, json={
+            "program_id": program_id,
+            "program_name": program_name
+        }, timeout=API_TIMEOUT)
+    except requests.RequestException:
+        logging.error("接口请求失败: RequestException - %s" % url)
+        return None
+
+    if response.status_code != 200:
+        logging.error("接口请求失败: %s - %s" % (response.status_code, url))
+        return None
+
+    try:
+        r_dict = json.loads(response.text)
+    except ValueError:
+        logging.error("接口返回结果解析失败 - %s" % response.text)
+        return None
+
+    if "code" not in r_dict or r_dict["code"] not in (200, 515):
+        logging.error("接口状态码异常：%s - %s" % (
+            r_dict["code"], r_dict["dmsg"]))
+        return None
+
+    return r_dict["data"]

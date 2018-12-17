@@ -1,6 +1,5 @@
 FROM python:3.7
 
-#RUN sed -i "s@http://deb.debian.org@https://mirrors.aliyun.com@g" /etc/apt/sources.list
 RUN echo " \
     deb http://mirrors.aliyun.com/debian/ stretch main non-free contrib \
     deb http://mirrors.aliyun.com/debian/ stretch-updates main non-free contrib \
@@ -12,7 +11,12 @@ RUN echo " \
     deb-src http://mirrors.aliyun.com/debian-security/ stretch/updates main non-free contrib \
     " >  /etc/apt/sources.list
 RUN mkdir ~/.pip && \
-    echo "[global]\nindex-url=https://pypi.tuna.tsinghua.edu.cn/simple/\n[install]\ntrusted-host=pypi.tuna.tsinghua.edu.cn\n" > ~/.pip/pip.conf
+    echo " \
+    [global] \
+    index-url=https://pypi.tuna.tsinghua.edu.cn/simple/ \
+    [install] \
+    trusted-host=pypi.tuna.tsinghua.edu.cn \
+    " > ~/.pip/pip.conf
 RUN apt-get -y update && \
     apt-get -y install vim
 

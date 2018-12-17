@@ -7,8 +7,7 @@ class Process(BaseModel):
     class Meta:
         db_table = "process"
 
-    source = CharField(max_length=8,
-                       help_text="配置来源：file/api，不能修改其他来源创建的program")
+    # 配置信息
     name = CharField(max_length=128, unique=True,
                      help_text="进程名称")
     command = TextField(help_text="启动命令")
@@ -32,32 +31,13 @@ class Process(BaseModel):
                                  help_text="进程保活时间")
     max_fail_count = IntegerField(default=3, null=True,
                                   help_text="默认最大失败次数，失败第4次时将不会重试")
-    cstatus = IntegerField(default=1,
-                           help_text="0 不启动, 1 可启动")
 
-    machine = CharField(max_length=128, default='',
-                        help_text="运行在哪台机器上machine")
+    # 运行状态
+    status = IntegerField(default=1,
+                          help_text="0 停止中, 1 运行中")
     pid = IntegerField(default=0,
                        help_text="进程ID")
-    pstatus = IntegerField(default=0,
-                           help_text="0 待启动, 1 启动中, 2 运行中, 3 停止中, "
-                                     "4 失败结束, 5 成功结束")
-
     fail_count = IntegerField(default=0,
-                              help_text="失败次数")
+                              help_text="当前失败次数")
     timeout_timestamp = IntegerField(default=0x7FFFFFFF,
                                      help_text="超时时间")
-
-    config_updated = IntegerField(default=1,
-                                  help_text="表示配置有更新，0 表示配置无更新")
-    config_hash = CharField(max_length=32, default='',
-                            help_text="配置hash值，据此判断配置更新时是否需要重启，"
-                                      "md5(command,machines,touch_timeout)")
-
-
-class Test(BaseModel):
-    class Meta:
-        db_table = "test"
-
-    name = CharField(max_length=128, unique=True)
-    status = IntegerField(default=0)
