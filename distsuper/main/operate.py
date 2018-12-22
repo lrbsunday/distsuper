@@ -7,11 +7,16 @@ from distsuper.models.models import Process
 from distsuper.common import tools, exceptions
 
 
-def get_program(program_id=None, program_name=None,
-                status=None):
+def get_program(program_id=None,
+                program_name=None,
+                status=None,
+                lock=None):
     conditions = []
     if status is not None:
         conditions.append(Process.status == status)
+
+    if lock is not None:
+        conditions.append(Process.lock == lock)
 
     if program_id is not None:
         conditions.append(Process.id == program_id)
@@ -25,8 +30,21 @@ def get_program(program_id=None, program_name=None,
         except DoesNotExist:
             raise exceptions.ProgramNotExistInDB()
         return program
+    else:
+        return Process.select().where(*conditions)
 
-    return Process.select().where(*conditions)
+
+def lock(program_id):
+    # todo 如果已上锁，等待或重试
+    if not Process.update(lock=1, lock_time=tools.get_now_time()) \
+            .where(Process.id == program_id).execute():
+        raise Exception("加锁失败")
+
+
+def unlock(program_id):
+    if Process.update(lock=0, lock_time=None) \
+            .where(Process.id == program_id).execute():
+        raise Exception("解锁失败")
 
 
 def create_program(program_name, command, machines,
@@ -34,7 +52,7 @@ def create_program(program_name, command, machines,
                    auto_start, auto_restart, touch_timeout,
                    max_fail_count,
                    stdout_logfile, stderr_logfile):
-    """ 创建program
+    """ 在数据库中添加一条program
     :param program_name:
     :param command:
     :param machines:
@@ -66,20 +84,20 @@ def create_program(program_name, command, machines,
 
                       machine="",
                       pid=0,
-                      status=int(0),
+                      status=0,
                       fail_count=0,
                       timeout_timestamp=0x7FFFFFFF
                       )
         program = Process(**fields)
         try:
             program.save()
-            return program.id
+            return program
         except IntegrityError:
             msg = "数据库完整性错误, 请稍后重试"
             logging.exception(msg)
             raise exceptions.DBIntegrityException(msg)
 
-    if program.status == 0:
+    if program.status == 0 and program.lock == 0:
         fields = dict(command=command,
                       machines=machines,
                       directory=directory,
@@ -93,7 +111,7 @@ def create_program(program_name, command, machines,
 
                       machine="",
                       pid=0,
-                      status=int(0),
+                      status=0,
                       fail_count=0,
                       timeout_timestamp=0x7FFFFFFF,
 
@@ -103,22 +121,23 @@ def create_program(program_name, command, machines,
             .where(Process.name == program_name) \
             .execute()
         if ret_code == 1:
-            return program.id
+            return program
         else:
-            msg = "程序%s的状态冲突，请稍后再试" % program_name
+            msg = "创建程序%s，更新数据库时发生异常" % program_name
             logging.error(msg)
             raise exceptions.DBConflictException(msg)
     else:
-        msg = "程序已存在, name=%s, machines=%s, command=%s" % (
-            program_name, machines, command)
+        msg = "程序%s运行中或被锁定，无法重新创建" % program_name
         logging.error(msg)
         raise exceptions.AlreadExistsException(msg, data={
             'program': program
         })
 
 
-def start_program(info, program_id=None, program_name=None):
+def start_program(machine, pid, program_id=None, program_name=None):
     """
+    :param machine:
+    :param pid:
     :param program_id:
     :param program_name:
     :return:
@@ -133,11 +152,12 @@ def start_program(info, program_id=None, program_name=None):
             raise exceptions.NoConfigException(msg)
 
         fields = dict(status=1,
-                      machine=info["machine"],
-                      pid=info["pid"],
+                      update_time=tools.get_now_time(),
+
+                      machine=machine,
+                      pid=pid,
                       fail_count=0,
-                      timeout_timestamp=0x7fffffff,
-                      update_time=tools.get_now_time())
+                      timeout_timestamp=0x7fffffff)
         ret_code = Process.update(**fields) \
             .where(Process.id == program_id,
                    Process.status == 0) \
@@ -151,11 +171,12 @@ def start_program(info, program_id=None, program_name=None):
             raise exceptions.NoConfigException(msg)
 
         fields = dict(status=1,
-                      machine=info["machine"],
-                      pid=info["pid"],
+                      update_time=tools.get_now_time(),
+
+                      machine=machine,
+                      pid=pid,
                       fail_count=0,
-                      timeout_timestamp=0x7fffffff,
-                      update_time=tools.get_now_time())
+                      timeout_timestamp=0x7fffffff)
         ret_code = Process.update(**fields) \
             .where(Process.name == program_name,
                    Process.status == 0) \
@@ -207,7 +228,7 @@ def stop_program(program_id=None, program_name=None):
                    Process.status == 1) \
             .execute()
     else:
-        msg = "请求参数缺少program_id/program_name"
+        msg = "请求参数program_id和program_name至少存在一个"
         logging.error(msg)
         raise exceptions.LackParamException(msg)
 

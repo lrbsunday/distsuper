@@ -16,10 +16,8 @@ logger.setLevel(logging.INFO)
 
 
 def sigdefault(process, info, *args):
-    logger.info(args)
     program_id = info['program_id']
     logger.info("进程%s收到信号，即将退出" % program_id)
-    # process.terminate()
     os.killpg(process.pid, signal.SIGKILL)
 
 
@@ -79,10 +77,8 @@ def success(args, retcode, info):
 # noinspection PyUnusedLocal
 def start_success(args, info):
     program_id = info['program_id']
-    machine = info['machine']
     pid = info['pid']
     fields = dict(pstatus=2,
-                  machine=machine,
                   pid=pid,
 
                   fail_count=0,
@@ -102,8 +98,6 @@ def start_success(args, info):
 
 
 def default_signal_handler(process, info, *args):
-    print('Received signal: ', args, info)
-    # process.terminate()
     os.killpg(process.pid, signal.SIGKILL)
 
 
@@ -231,7 +225,6 @@ def task_wrapper(args, info):
                         continue
                     else:
                         try:
-                            # process.terminate()
                             os.killpg(process.pid, signal.SIGKILL)
                         except OSError:
                             logging.warning("%s进程已停止" % info['program_name'])

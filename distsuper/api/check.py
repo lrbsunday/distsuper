@@ -1,6 +1,4 @@
 #!-*- encoding: utf-8 -*-
-import logging
-
 import requests
 
 from distsuper.common import tools, exceptions
@@ -22,7 +20,6 @@ def check_service_status(machine, port, status):
 
 def check_service_status_once(machine, port, status):
     url = "http://%s:%s/check" % (machine, port)
-    logging.info(url)
     try:
         response = requests.get(url, timeout=API_TIMEOUT)
     except requests.Timeout:

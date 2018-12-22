@@ -7,14 +7,13 @@ import logging
 
 from peewee import DoesNotExist
 
-from distsuper.common import exceptions, tools
+from distsuper.common import exceptions
 from distsuper.models.models import Process
-from distsuper.interface.shell import wait_until_start_done, wait_until_stop_done
 
 logger = logging.getLogger('agent')
 
 
-def local_start(program_id, machine):
+def local_start(program_id, wait=3):
     try:
         process = Process.select().where(Process.id == program_id).get()
     except DoesNotExist:
@@ -22,39 +21,10 @@ def local_start(program_id, machine):
         logger.warning(msg)
         raise exceptions.NoConfigException(msg)
 
-    if process.pstatus == 0:
-        pass
-    if process.pstatus == 1:
-        msg = "进程%s启动中，忽略本次请求" % program_id
+    if process.status == 1:
+        msg = "进程%s已启动，忽略本次请求" % process.name
         logger.warning(msg)
-        raise exceptions.ProcessStatusException(msg)
-    if process.pstatus == 2:
-        msg = "进程%s已启动，忽略本次请求" % program_id
-        raise exceptions.ProcessStatusException(msg)
-    if process.pstatus == 3:
-        msg = "进程%s停止中，忽略本次请求" % program_id
-        raise exceptions.ProcessStatusException(msg)
-
-    fields = dict(machine=machine,
-                  pid=0,
-                  pstatus=1,
-
-                  # fail_count=0,  # 需要连续运行一段时间，才能确定是启动成功
-                  timeout_timestamp=(int(time.time()) + Process.touch_timeout),
-
-                  config_updated=0,
-                  update_time=tools.get_now_time())
-    retcode = Process.update(**fields) \
-        .where(Process.id == program_id,
-               Process.config_hash == process.config_hash,
-               Process.pstatus == 0) \
-        .execute()
-    if retcode == 1:
-        logger.info("进程%s启动中..." % program_id)
-    else:
-        msg = "进程%s启动时，状态改变导致数据库冲突，无法修改状态" % program_id
-        logger.warning(msg)
-        raise exceptions.DBConflictException(msg)
+        raise exceptions.AlreadyStartException()
 
     command = process.command
     directory = process.directory
@@ -63,7 +33,6 @@ def local_start(program_id, machine):
     stdout_logfile = process.stdout_logfile
     stderr_logfile = process.stderr_logfile
     info = {
-        'machine': machine,
         'program_id': process.id,
         'program_name': process.name,
         'directory': directory,
@@ -72,27 +41,20 @@ def local_start(program_id, machine):
         'stdout_logfile': stdout_logfile,
         'stderr_logfile': stderr_logfile,
     }
-    # processwrapper.create_subprocess(command, info)
 
     args = json.dumps(command)
     info = json.dumps(info)
 
-    subprocess.Popen(['dswrapper', args, info])
-    # try:
-    #     retcode = subprocess.Popen(['dswrapper', args, info]).wait(timeout=3)
-    # except subprocess.TimeoutExpired:
-    #     retcode = 0
-    # if retcode != 0:
-    #     raise exceptions.StartException(dmsg="启动失败，错误码为%s" % retcode)
+    p = subprocess.Popen(['dswrapper', args, info])
 
-    ret = wait_until_start_done(program_id, timeout=5)
-    if ret is None:
-        raise exceptions.StartException(dmsg="启动尚未结束")
-    if not ret:
-        raise exceptions.StartException(dmsg="启动失败，错误码为%s" % retcode)
+    if not check_start_status(p.pid, wait):
+        logger.warning("进程%s启动失败" % process.name)
+        raise exceptions.StartException()
+
+    return p.pid
 
 
-def local_stop(program_id):
+def local_stop(program_id, wait_timeout=10):
     try:
         process = Process.select().where(Process.id == program_id).get()
     except DoesNotExist:
@@ -100,61 +62,19 @@ def local_stop(program_id):
         logger.warning(msg)
         raise exceptions.NoConfigException(msg)
 
-    if process.pstatus == 0:
-        msg = "进程%s已停止，忽略本次请求" % program_id
+    if process.status == 0:
+        msg = "进程%s已停止，忽略本次请求" % process.name
         logger.warning(msg)
-        raise exceptions.ProcessStatusException(msg)
-    if process.pstatus == 1:
-        msg = "进程%s启动中，忽略本次请求" % program_id
-        logger.warning(msg)
-        raise exceptions.ProcessStatusException(msg)
-    if process.pstatus == 2:
-        pass
-    if process.pstatus == 3:
-        msg = "进程%s停止中，忽略本次请求" % program_id
-        raise exceptions.ProcessStatusException(msg)
-
-    fields = dict(pstatus=3,
-
-                  config_updated=0,
-                  update_time=tools.get_now_time())
-    retcode = Process.update(**fields) \
-        .where(Process.id == program_id,
-               Process.config_hash == process.config_hash,
-               Process.pstatus == 2) \
-        .execute()
-    if retcode == 1:
-        logger.info("进程%s停止中..." % program_id)
-    else:
-        msg = "进程%s停止时，状态改变导致数据库冲突，无法修改状态" % program_id
-        logger.warning(msg)
-        raise exceptions.DBConflictException(msg)
-
-    if process.pid == 0:
-        msg = "进程%s的pid不合法，停止失败" % program_id
-        logger.warning(msg)
-        raise exceptions.ProcessStatusException(msg)
+        raise exceptions.AlreadyStopException()
 
     args = ['kill', str(process.pid)]
     subprocess.Popen(args).wait()
 
-    fields = dict(cstatus=0,
+    if not wait_until_stop_done(process.pid, wait_timeout):
+        logger.warning("进程%s停止失败" % process.name)
+        raise exceptions.StopException()
 
-                  pstatus=0,
-                  machine='',
-                  pid=0,
-
-                  update_time=tools.get_now_time())
-    retcode = Process.update(**fields) \
-        .where(Process.id == program_id,
-               Process.pstatus == 3) \
-        .execute()
-    if retcode == 1:
-        logger.info("进程%s停止成功" % program_id)
-    else:
-        msg = "进程%s停止成功，但状态改变导致数据库冲突，无法修改状态" % program_id
-        logger.warning(msg)
-        raise exceptions.DBConflictException(msg)
+    return True
 
 
 def get_status(program_id):
@@ -163,8 +83,31 @@ def get_status(program_id):
     except DoesNotExist:
         return False
 
+    if process.status == 0:
+        return False
+
     pid = process.pid
-    for line in os.popen("ps aux|awk '{print $2}'|grep %s" % pid):
+    return check_pid(pid)
+
+
+def check_pid(pid):
+    for line in os.popen("ps aux|awk '{print $2}'|grep -E '^%s$'" % pid):
         if line.strip() == str(pid):
             return True
     return False
+
+
+def check_start_status(pid, wait):
+    time.sleep(wait)
+    return check_pid(pid)
+
+
+def wait_until_stop_done(pid, wait_timeout):
+    while True:
+        time.sleep(1)
+        if not check_pid(pid):
+            return True
+
+        wait_timeout -= 1
+        if wait_timeout > 0:
+            return False

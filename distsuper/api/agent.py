@@ -13,29 +13,28 @@ def start_process(program_id, machine):
     url = "http://%s:%s/start" % (machine, CONFIG.DISTSUPERAGENT.port)
     try:
         response = requests.post(url, json={
-            "program_id": program_id,
-            "machine": machine
+            "program_id": program_id
         }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("agent接口请求失败: RequestException - %s" % url)
-        return False
+        return None
 
     if response.status_code != 200:
         logging.error("agent接口请求失败: %s - %s" % (response.status_code, url))
-        return False
+        return None
 
     try:
         r_dict = json.loads(response.text)
     except ValueError:
         logging.error("agent接口返回结果解析失败 - %s" % response.text)
-        return False
+        return None
 
     if "code" not in r_dict or r_dict["code"] != 200:
         logging.error("agent接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
         return False
 
-    return True
+    return r_dict["data"]["pid"]
 
 
 def stop_process(program_id, machine):
@@ -46,17 +45,17 @@ def stop_process(program_id, machine):
         }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("agent接口请求失败: RequestException - %s" % url)
-        return False
+        return None
 
     if response.status_code != 200:
         logging.error("agent接口请求失败: %s - %s" % (response.status_code, url))
-        return False
+        return None
 
     try:
         r_dict = json.loads(response.text)
     except ValueError:
         logging.error("agent接口返回结果解析失败 - %s" % response.text)
-        return False
+        return None
 
     if "code" not in r_dict or r_dict["code"] != 200:
         logging.error("agent接口状态码异常：%s - %s" % (

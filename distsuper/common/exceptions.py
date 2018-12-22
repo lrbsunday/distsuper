@@ -143,6 +143,16 @@ class ProgramNotExistInDB(BaseExc):
     msg = "程序在数据库中不存在"
 
 
+class AlreadyStartException(BaseExc):
+    code = 526
+    msg = "程序已启动"
+
+
+class AlreadyStopException(BaseExc):
+    code = 527
+    msg = "程序已停止"
+
+
 # 内部使用
 class RetryException(BaseExc):
     pass

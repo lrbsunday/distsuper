@@ -15,14 +15,11 @@ def check(_):
 def start(request_info):
     if 'program_id' not in request_info:
         raise exceptions.LackParamException("请求参数缺少program_id")
-    if 'machine' not in request_info:
-        raise exceptions.LackParamException("请求参数缺少machine")
 
     program_id = request_info['program_id']
-    machine = request_info['machine']
-    local_start(program_id, machine)
+    pid = local_start(program_id)
 
-    return {}
+    return {"pid": pid}
 
 
 @app.route('/stop', methods=['GET', 'POST'])

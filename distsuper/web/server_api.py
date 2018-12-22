@@ -8,18 +8,56 @@ from . import app
 
 
 def get_best_machine(machines):
-    return machines.split(";")[0]
+    machines = machines.split(";")
+    machines = [machine.strip()
+                for machine in machines
+                if machine.strip()]
+    return machines[0] if machines else "127.0.0.1"
+
+
+def start(program):
+    machine = get_best_machine(program.machines)
+
+    operate.lock(program.id)
+    pid = agent.start_process(program.id, machine)
+
+    if pid:
+        operate.start_program(machine, pid, program_id=program.id)
+        operate.unlock(program.id)
+        return program.id
+
+    operate.unlock(program.id)
+    raise exceptions.StartException()
+
+
+def stop(program):
+    machine = program.machine
+
+    operate.lock(program.id)
+    ret = agent.stop_process(program.id, machine)
+
+    if ret:
+        operate.stop_program(program_id=program.id)
+        operate.unlock(program.id)
+        return program.id
+
+    operate.unlock(program.id)
+    raise exceptions.StopException()
 
 
 # todo
 """
 并发性：uwsgi的多个线程同时启停一个进程怎么办？
         相同dpid的操作排队执行
-原子性：操作到一半时uwsg重启或服务器宕机怎么办？
+        为减小延迟，队列长度设为2，一个用户使用，一个后台使用
+原子性：操作到一半时uwsgi重启或服务器宕机怎么办？
         数据库中创建一条记录 => 远程启动 => 修改启动状态
-        若中间任何一个环节终端，客户端会收到未知异常，表示内部状态未知，需要查询确定
+        若中间任何一个环节中断，客户端会收到未知异常，表示内部状态未知，需要查询确定状态
         要保证服务内部状态一致，即不能出现远程已启动，但数据库中是已停止的状态
         通过touchdb接口保证最终一致性
+        
+不可能出现的情况：
+    数据库里的进程已停止，且实际进程运行中
 """
 
 
@@ -32,6 +70,7 @@ def check(_):
 @app.route('/touch', methods=['GET', 'POST'])
 @handlers.request_pre_handler()
 def touch(request_info):
+    # todo
     return {}
 
 
@@ -60,20 +99,12 @@ def create(request_info):
     if not program_name:
         raise exceptions.ParamValueException("program_name不能为空")
 
-    program_id = operate.create_program(program_name, command, machines,
-                                        directory, environment,
-                                        auto_start, auto_restart,
-                                        touch_timeout, max_fail_count,
-                                        stdout_logfile, stderr_logfile)
-
-    machine = get_best_machine(machines)
-    info = agent.start_process(program_id, machine)
-
-    if info:
-        operate.start_program(info, program_id=program_id)
-        return program_id
-    else:
-        raise exceptions.StartException()
+    program = operate.create_program(program_name, command, machines,
+                                     directory, environment,
+                                     auto_start, auto_restart,
+                                     touch_timeout, max_fail_count,
+                                     stdout_logfile, stderr_logfile)
+    return start(program)
 
 
 @app.route('/start', methods=['GET', 'POST'])
@@ -83,10 +114,9 @@ def start(request_info):
     program_name = request_info.get('program_name')
 
     if program_id is None and program_name is None:
-        raise exceptions.LackParamException("请求参数缺少program_id/program_name")
+        raise exceptions.LackParamException("参数program_id和program_name至少存在一个")
 
     if program_id is not None:
-        program_id = str(program_id)
         try:
             program_id = int(program_id)
         except ValueError:
@@ -94,15 +124,9 @@ def start(request_info):
 
     program = operate.get_program(program_id=program_id,
                                   program_name=program_name,
-                                  status=0)
-    machine = get_best_machine(program.machines)
-    info = agent.start_process(program_id, machine)
-
-    if info:
-        operate.start_program(info, program_id=program_id)
-        return program_id
-    else:
-        raise exceptions.StartException()
+                                  status=0,
+                                  lock=0)
+    return start(program)
 
 
 @app.route('/stop', methods=['GET', 'POST'])
@@ -112,11 +136,9 @@ def stop(request_info):
     program_name = request_info.get('program_name')
 
     if program_id is None and program_name is None:
-        raise exceptions.LackParamException("请求参数缺少program_id/program_name")
+        raise exceptions.LackParamException("参数program_id和program_name至少存在一个")
 
-    # 修改数据库
     if program_id is not None:
-        program_id = str(program_id)
         try:
             program_id = int(program_id)
         except ValueError:
@@ -124,20 +146,46 @@ def stop(request_info):
 
     program = operate.get_program(program_id=program_id,
                                   program_name=program_name,
-                                  status=1)
-    operate.stop_program(program_id=program_id)
+                                  status=1,
+                                  lock=0)
+    return stop(program)
+
+
+@app.route('/restart', methods=['GET', 'POST'])
+@handlers.request_pre_handler()
+def restart(request_info):
+    program_id = request_info.get('program_id')
+    program_name = request_info.get('program_name')
+
+    if program_id is None and program_name is None:
+        raise exceptions.LackParamException("参数program_id和program_name至少存在一个")
+
+    if program_id is not None:
+        try:
+            program_id = int(program_id)
+        except ValueError:
+            raise exceptions.ParamValueException("program_id格式不正确")
+
+    program = operate.get_program(program_id=program_id,
+                                  program_name=program_name,
+                                  status=1,
+                                  lock=0)
+    return stop(program) and start(program)
 
 
 @app.route('/status', methods=['GET', 'POST'])
 @handlers.request_pre_handler()
-def stop(request_info):
+def status(request_info):
     program_id = request_info.get('program_id')
     program_name = request_info.get('program_name')
+    _status = request_info.get('status')
 
     if program_id or program_name:
-        program = get_program(program_id=program_id, program_name=program_name)
+        program = operate.get_program(program_id=program_id,
+                                      program_name=program_name,
+                                      status=_status)
         return model_to_dict(program, recurse=False)
     else:
-        programs = get_program(program_id=program_id, program_name=program_name)
+        programs = operate.get_program()
         return [model_to_dict(program, recurse=False)
                 for program in programs]
