@@ -9,12 +9,12 @@ import threading
 import subprocess
 
 from distsuper.models.models import Process as ProcessModel
-from distsuper.common import exceptions, tools
 
 logger = logging.getLogger("wrapper")
 logger.setLevel(logging.INFO)
 
 
+# noinspection PyUnusedLocal
 def sigdefault(process, info, *args):
     program_id = info['program_id']
     logger.info("进程%s收到信号，即将退出" % program_id)
@@ -24,98 +24,20 @@ def sigdefault(process, info, *args):
 # noinspection PyUnusedLocal
 def sigterm(process, info, *args):
     program_id = info['program_id']
-
-    fields = dict(pstatus=0,
-                  update_time=tools.get_now_time())
-    r = ProcessModel.update(**fields) \
-        .where(ProcessModel.id == program_id,
-               ProcessModel.pstatus << [1, 2]) \
-        .execute()
-    if r == 1:
-        logger.info("进程%s被手动发出的SIG_TERM信号杀死" % (program_id,))
-    else:
-        logger.info("进程%s被agent正常杀死，即将退出" % (program_id,))
-    info['stop_flag'] = True
-    # process.terminate()
+    logger.info("进程%s被SIG_TERM信号杀死" % program_id)
     os.killpg(process.pid, signal.SIGKILL)
 
 
 # noinspection PyUnusedLocal
 def fail(args, retcode, info):
-    if 'stop_flag' in info:
-        return
     program_id = info['program_id']
-
-    fields = dict(pstatus=0,
-                  fail_count=ProcessModel.fail_count + 1,
-                  update_time=tools.get_now_time())
-    r = ProcessModel.update(**fields) \
-        .where(ProcessModel.id == program_id,
-               ProcessModel.pstatus << [1, 2]) \
-        .execute()
-    if r == 0:
-        logger.warning("进程%s状态更新失败" % program_id)
-    else:
-        logger.info("进程%s执行失败，退出状态码%s" % (program_id, retcode))
+    logger.info("进程%s执行失败" % program_id)
 
 
 # noinspection PyUnusedLocal
 def success(args, retcode, info):
     program_id = info['program_id']
-    fields = dict(pstatus=5,
-                  update_time=tools.get_now_time())
-    r = ProcessModel.update(**fields) \
-        .where(ProcessModel.id == program_id,
-               ProcessModel.pstatus << [1, 2]) \
-        .execute()
-    if r == 0:
-        logger.warning("进程%s状态更新失败" % program_id)
-    else:
-        logger.info("进程%s执行成功，退出状态码%s" % (program_id, retcode))
-
-
-# noinspection PyUnusedLocal
-def start_success(args, info):
-    program_id = info['program_id']
-    pid = info['pid']
-    fields = dict(pstatus=2,
-                  pid=pid,
-
-                  fail_count=0,
-
-                  update_time=tools.get_now_time())
-    retcode = ProcessModel.update(**fields) \
-        .where(ProcessModel.id == program_id,
-               ProcessModel.pstatus == 1) \
-        .execute()
-    if retcode == 1:
-        msg = "进程%s启动成功" % program_id
-        logger.info(msg)
-    else:
-        msg = "进程%s启动失败，或状态改变导致数据库冲突，无法修改状态" % program_id
-        logger.error(msg)
-        raise exceptions.DBConflictException(msg)
-
-
-def default_signal_handler(process, info, *args):
-    os.killpg(process.pid, signal.SIGKILL)
-
-
-def register_signal_handler(sig, callback, default_callback=None):
-    if callback and callable(callback):
-        signal.signal(sig, callback)
-    elif default_callback and callable(default_callback):
-        signal.signal(sig, default_callback)
-
-
-def handler_wrapper(process, info, signal_handler):
-    if signal_handler is None:
-        return None
-
-    def __wrapper(*args):
-        signal_handler(process, info, *args)
-
-    return __wrapper
+    logger.info("进程%s执行成功" % program_id)
 
 
 def register_signal_handlers(process, info, callbacks):
@@ -126,6 +48,22 @@ def register_signal_handlers(process, info, callbacks):
         key可以取sighub、sigint、sigquit、sigterm、sigdefault
     :return:
     """
+
+    def register_signal_handler(sig, callback, default_callback=None):
+        if callback and callable(callback):
+            signal.signal(sig, callback)
+        elif default_callback and callable(default_callback):
+            signal.signal(sig, default_callback)
+
+    def handler_wrapper(_process, _info, signal_handler):
+        if signal_handler is None:
+            return None
+
+        def __wrapper(*args):
+            signal_handler(_process, _info, *args)
+
+        return __wrapper
+
     defaultcallback = handler_wrapper(process, info,
                                       callbacks.get('sigdefault'))
     register_signal_handler(signal.SIGINT,
@@ -163,94 +101,94 @@ def touch_db(program_name, pid, touch_timeout):
 # noinspection PyBroadException
 def task_wrapper(args, info):
     callbacks = {
-        'success': success,
-        'fail': fail,
+        'on_success': success,
+        'on_fail': fail,
         'sigdefault': sigdefault,
-        'sigterm': sigterm,
-        'start_success': start_success
+        'sigterm': sigterm
     }
 
-    try:
-        info['pid'] = os.getpid()
-        callbacks = callbacks or {}
-        if 'sigdefault' not in callbacks:
-            callbacks['sigdefault'] = default_signal_handler
+    info['pid'] = os.getpid()
 
-        directory = info.get('directory')
-        if directory is not None:
-            os.chdir(directory)
-        env = os.environ
-        environment = info.get('environment')
-        if environment is not None:
-            environment = {
-                field.strip().split('=', 2)[0].strip():
-                    field.strip().split('=', 2)[1].strip()
-                for field in environment.strip().split(';')
-            }
-            env.update(environment)
+    # 当前路径
+    directory = info.get("directory")
+    if directory is not None:
+        os.chdir(directory)
 
-        stdout_logfile = info.get('stdout_logfile', '')
-        stderr_logfile = info.get('stderr_logfile', '')
-        stdout = sys.stdout
-        stderr = sys.stderr
-        if stdout_logfile:
-            try:
-                stdout = open(stdout_logfile, 'w+')
-            except OSError:
-                logging.warning("无法打开文件%s，日志打印到标准输出" % stdout_logfile)
-        if stderr_logfile:
-            try:
-                stderr = open(stderr_logfile, 'w+')
-            except OSError:
-                logging.warning("无法打开文件%s，日志打印到标准错误" % stderr_logfile)
+    # 环境变量
+    env = os.environ
+    environment = info.get('environment')
+    if environment is not None:
+        environment = {
+            field.strip().split('=', 2)[0].strip():
+                field.strip().split('=', 2)[1].strip()
+            for field in environment.strip().split(';')
+        }
+        env.update(environment)
 
-        process = subprocess.Popen(args, env=env, shell=True,
-                                   stdout=stdout, stderr=stderr,
-                                   preexec_fn=os.setsid)
-        register_signal_handlers(process, info, callbacks)
+    # 日志文件
+    stdout_logfile = info.get('stdout_logfile', '')
+    stderr_logfile = info.get('stderr_logfile', '')
+    stdout = sys.stdout
+    stderr = sys.stderr
+    if stdout_logfile:
+        try:
+            stdout = open(stdout_logfile, 'w+')
+        except OSError:
+            logging.warning("无法打开文件%s，日志打印到标准输出" % stdout_logfile)
+    if stderr_logfile:
+        try:
+            stderr = open(stderr_logfile, 'w+')
+        except OSError:
+            logging.warning("无法打开文件%s，日志打印到标准错误" % stderr_logfile)
 
-        def touch_db_loop(is_stop_info):
-            running_time = 0  # 单位秒
-            while 'stop' not in is_stop_info:
-                time.sleep(1)
-                if running_time <= 3:
-                    running_time += 1
-                if running_time == 3:
-                    if 'start_success' in callbacks and callable(
-                            callbacks['start_success']):
-                        callbacks['start_success'](args, info)
-                if running_time > 3:
-                    if touch_db(info['program_name'], info['pid'],
-                                info['touch_timeout']):
-                        continue
-                    else:
-                        try:
-                            os.killpg(process.pid, signal.SIGKILL)
-                        except OSError:
-                            logging.warning("%s进程已停止" % info['program_name'])
-                        break
+    # 启动子进程
+    process = subprocess.Popen(args, env=env, shell=True,
+                               stdout=stdout, stderr=stderr,
+                               preexec_fn=os.setsid)
 
-        _is_stop_info = dict()
-        thread = threading.Thread(target=touch_db_loop, args=(_is_stop_info,))
-        thread.start()
+    # 注册回调函数
+    register_signal_handlers(process, info, callbacks)
 
-        retcode = process.wait()
-        _is_stop_info['stop'] = True
-        if retcode == 0:
-            if 'success' in callbacks and callable(
-                    callbacks['success']):
-                callbacks['success'](args, retcode, info)
-        else:
-            if 'fail' in callbacks and callable(
-                    callbacks['fail']):
-                callbacks['fail'](args, retcode, info)
+    def touch_db_loop(_stop_info):
+        while True:
+            if _stop_info:
+                break
+            time.sleep(1)
+            touch_db(info['program_name'], info['pid'],
+                     info['touch_timeout'])
 
-        thread.join()
-    except Exception:
-        logging.exception('task wrapper')
+    # touch db 线程
+    stop_info = {}
+    thread = threading.Thread(target=touch_db_loop, args=(stop_info,))
+    thread.start()
+
+    # 处理进程结束的状态码
+    retcode = process.wait()
+    stop_info["stop"] = True
+    if retcode == 0:
+        if 'on_success' in callbacks and \
+                callable(callbacks['on_success']):
+            callbacks['on_success'](args, retcode, info)
+    else:
+        if 'on_fail' in callbacks and \
+                callable(callbacks['on_fail']):
+            callbacks['on_fail'](args, retcode, info)
+
+    thread.join()
 
 
 def main():
+    try:
+        process_id = os.fork()
+    except OSError as e:
+        sys.exit(1)
+
+    if process_id != 0:
+        print(process_id)
+        sys.exit(0)
+
+    os.setsid()
+
     args = json.loads(sys.argv[1])
     info = json.loads(sys.argv[2])
     task_wrapper(args, info)

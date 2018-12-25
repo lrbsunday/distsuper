@@ -6,6 +6,7 @@ import logging
 import click
 
 from distsuper.scripts.common import check_config
+from distsuper.common import tools
 from distsuper.api import server as sa
 
 """
@@ -29,7 +30,7 @@ def start(program_id):
     if sa.start_process(program_id=program_id):
         logging.info("进程启动成功")
     else:
-        logging.info("进程启动失败")
+        logging.error("进程启动失败")
 
 
 @main.command()
@@ -38,7 +39,7 @@ def stop(program_id):
     if sa.stop_process(program_id=program_id):
         logging.info("进程停止成功")
     else:
-        logging.info("进程停止失败")
+        logging.error("进程停止失败")
 
 
 @main.command()
@@ -47,36 +48,42 @@ def restart(program_id):
     if sa.restart_process(program_id=program_id):
         logging.info("进程重启成功")
     else:
-        logging.info("进程重启失败")
+        logging.error("进程重启失败")
 
 
 @main.command()
 def status():
     processes = sa.get_process()
+    if processes is None:
+        logging.error("获取进程信息失败")
+        return
 
-    results = []
+    titles = ["ID", "名称", "状态", "机器", "PID", "启动时间", "命令"]
+    results = [titles]
     for process in processes:
         name = process["name"]
-        _status = process["status"]
-        machine = 'machine:' + process.machine if _status else ''
-        pid = 'pid:' + str(process.pid) if _status == 1 else ''
-        start_time = process.create_time.strftime(
-            "%Y-%m-%dT%H:%M:%S") if _status == 1 else ''
-        command = process["command"]
+        _status = "运行中" if process["status"] == 1 else "已停止"
+        machine = process["machine"] or "-"
+        pid = process["pid"] or "-"
+        start_time = process["create_time"] or "-"
+        command = process["command"] or "-"
 
-        results.append([str(process.id), name, _status,
-                        machine, pid, start_time, command])
+        results.append([str(process["id"]), name, str(_status),
+                        machine, str(pid), start_time, command])
 
     if results:
-        templates = []
-        for i in range(7):
-            max_length = max(len(result[i]) for result in results)
-            templates.append("%{}s".format(max_length))
+        width_list = []
+        for i in range(len(titles)):
+            max_length = max(tools.char_length(result[i]) for result in results)
+            width_list.append(max_length)
 
+        print(width_list)
         for result in results:
-            print('\t'.join([template % field
-                             for field, template in
-                             zip(result, templates)]))
+            print('    '.join(["%-{}s".format(width
+                                              - tools.unicode_count(field))
+                               % field
+                               for field, width in
+                               zip(result, width_list)]))
 
 
 @main.command()

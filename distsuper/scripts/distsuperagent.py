@@ -11,12 +11,6 @@ from distsuper.api.check import check_service_status
 from distsuper import CONFIG
 
 
-# todo
-# agent管理
-# 1. server实现接口
-# 2. agent启动、停止后调用server接口修改状态
-# 3. server定期探测agent状态是否可用
-
 @click.group()
 def main():
     check_config()

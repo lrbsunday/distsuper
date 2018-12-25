@@ -29,7 +29,11 @@ def start_process(program_id, machine):
         logging.error("agent接口返回结果解析失败 - %s" % response.text)
         return None
 
-    if "code" not in r_dict or r_dict["code"] != 200:
+    if "code" not in r_dict:
+        logging.error("agent接口返回结果格式不正确 - %s" % response.text)
+        return False
+
+    if r_dict["code"] != 200:
         logging.error("agent接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
         return False
@@ -57,7 +61,11 @@ def stop_process(program_id, machine):
         logging.error("agent接口返回结果解析失败 - %s" % response.text)
         return None
 
-    if "code" not in r_dict or r_dict["code"] != 200:
+    if "code" not in r_dict:
+        logging.error("agent接口返回结果格式不正确 - %s" % response.text)
+        return False
+
+    if r_dict["code"] != 200:
         logging.error("agent接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
         return False
@@ -95,7 +103,11 @@ def check_process_status(program_id, machine, pid):
         logging.error("agent接口返回结果解析失败 - %s" % response.text)
         return None
 
-    if "code" not in r_dict or r_dict["code"] != 200:
+    if "code" not in r_dict:
+        logging.error("agent接口返回结果格式不正确 - %s" % response.text)
+        return False
+
+    if r_dict["code"] != 200:
         logging.error("agent接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
         return None

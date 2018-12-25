@@ -190,3 +190,15 @@ def get_config_hash(command, machines, touch_timeout):
     return get_md5("#".join(
         map(str, [command, machines, touch_timeout])
     ))
+
+
+def char_length(value):
+    length = len(value)
+    utf8_length = len(value.encode('utf-8'))
+    return (utf8_length - length) // 2 + length
+
+
+def unicode_count(value):
+    length = len(value)
+    utf8_length = len(value.encode('utf-8'))
+    return (utf8_length - length) // 2

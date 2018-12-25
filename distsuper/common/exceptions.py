@@ -1,5 +1,6 @@
 #!-*- encoding: utf-8 -*-
 import json
+import inspect
 
 
 class SimpleEncoder(json.JSONEncoder):
@@ -151,6 +152,23 @@ class AlreadyStartException(BaseExc):
 class AlreadyStopException(BaseExc):
     code = 527
     msg = "程序已停止"
+
+
+class UpdateDBException(BaseExc):
+    code = 528
+    msg = "数据库更新异常"
+
+
+class RestartException(BaseExc):
+    code = 529
+    msg = "程序重启异常"
+
+
+exception_code_mapping = dict()
+items = list(globals().values())
+for item in items:
+    if inspect.isclass(item) and issubclass(item, BaseExc):
+        exception_code_mapping[item.code] = item
 
 
 # 内部使用

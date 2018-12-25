@@ -1,8 +1,11 @@
 #!-*- encoding: utf-8 -*-
+import logging
+
 from playhouse.shortcuts import model_to_dict
 
 from distsuper.common import handlers, exceptions
 from distsuper.main import operate
+from distsuper.main.operate import STATUS
 from distsuper.api import agent
 from . import app
 
@@ -15,34 +18,120 @@ def get_best_machine(machines):
     return machines[0] if machines else "127.0.0.1"
 
 
-def start(program):
+CAN_CREATE_STATUS = (STATUS.STOPPED, STATUS.FATAL, STATUS.UNKNOWN)
+CAN_START_STATUS = (STATUS.STOPPED, STATUS.EXITED, STATUS.FATAL, STATUS.UNKNOWN)
+CAN_STOP_STATUS = (STATUS.RUNNING, STATUS.EXITED, STATUS.FATAL, STATUS.UNKNOWN)
+
+
+def create_process(program_name, command, machines,
+                   directory, environment,
+                   auto_start, auto_restart, touch_timeout,
+                   max_fail_count,
+                   stdout_logfile, stderr_logfile):
+    try:
+        program = operate.get_program(program_name=program_name)
+    except exceptions.ProgramNotExistInDB:
+        return operate.create_program(program_name, command, machines,
+                                      directory, environment,
+                                      auto_start, auto_restart, touch_timeout,
+                                      max_fail_count,
+                                      stdout_logfile, stderr_logfile)
+
+    if program.status not in CAN_CREATE_STATUS:
+        msg = "程序%s所处状态，无法重新创建" % program_name
+        logging.error(msg)
+        raise exceptions.AlreadExistsException(msg)
+
+    if operate.update_program(program.id,
+                              command=command,
+                              machines=machines,
+                              directory=directory,
+                              environment=environment,
+                              auto_start=auto_start,
+                              auto_restart=auto_restart,
+                              touch_timeout=touch_timeout,
+                              max_fail_count=max_fail_count,
+                              stdout_logfile=stdout_logfile,
+                              stderr_logfile=stderr_logfile,
+                              machine="",
+                              pid=0,
+                              status=STATUS.STOPPED,
+                              fail_count=0,
+                              timeout_timestamp=0x7FFFFFFF):
+        return operate.get_program(program_id=program.id)
+
+
+def start_process(program_id):
+    program = operate.get_program(program_id=program_id)
+    if program.status == STATUS.RUNNING:
+        logging.warning("程序%s运行中，无需重复启动" % program.id)
+        raise exceptions.AlreadyStartException()
+
+    if program.status not in CAN_START_STATUS:
+        logging.warning("程序%s所处状态无法启动" % program.name)
+        raise exceptions.StartException()
+
     machine = get_best_machine(program.machines)
 
-    operate.lock(program.id)
+    if not operate.change_status(program.id,
+                                 CAN_START_STATUS,
+                                 STATUS.STARTING):
+        logging.error("程序%s修改状态失败" % program.id)
+        raise exceptions.StartException()
+
     pid = agent.start_process(program.id, machine)
+    if not pid:
+        logging.error("程序%s启动失败" % program.id)
+        operate.change_status(program.id, STATUS.STARTING, STATUS.STOPPED)
+        raise exceptions.StartException()
 
-    if pid:
-        operate.start_program(machine, pid, program_id=program.id)
-        operate.unlock(program.id)
-        return program.id
+    fields = dict(machine=machine,
+                  pid=pid,
+                  fail_count=0,
+                  timeout_timestamp=0x7fffffff)
+    if operate.update_program(program_id=program.id, **fields):
+        ret = operate.change_status(program.id, STATUS.STARTING, STATUS.RUNNING)
+    else:
+        logging.error("程序%s更新数据库失败" % program.id)
+        ret = operate.change_status(program.id, STATUS.STARTING, STATUS.STOPPED)
 
-    operate.unlock(program.id)
-    raise exceptions.StartException()
+    if not ret:
+        logging.error("程序%s修改状态失败" % program.id)
+        raise exceptions.StartException()
+
+    return program.id
 
 
-def stop(program):
+def stop_process(program_id):
+    program = operate.get_program(program_id=program_id)
+    if program.status == STATUS.STOPPED:
+        logging.warning("程序%s已停止，无需重复停止" % program.id)
+        raise exceptions.AlreadyStopException()
+
+    if program.status not in (STATUS.RUNNING,):
+        logging.warning("程序%s不是运行状态，无法停止" % program.name)
+        raise exceptions.StopException()
+
     machine = program.machine
 
-    operate.lock(program.id)
+    if not operate.change_status(program.id,
+                                 STATUS.RUNNING,
+                                 STATUS.STOPPING):
+        logging.error("程序%s修改状态失败" % program.id)
+        raise exceptions.StopException()
+
     ret = agent.stop_process(program.id, machine)
+    if not ret:
+        logging.error("程序%s停止失败" % program.id)
+        operate.change_status(program.id, STATUS.STOPPING, STATUS.RUNNING)
+        raise exceptions.StopException()
 
-    if ret:
-        operate.stop_program(program_id=program.id)
-        operate.unlock(program.id)
-        return program.id
+    ret = operate.change_status(program.id, STATUS.STOPPING, STATUS.STOPPED)
+    if not ret:
+        logging.error("程序%s修改状态失败" % program.id)
+        raise exceptions.StopException()
 
-    operate.unlock(program.id)
-    raise exceptions.StopException()
+    return program.id
 
 
 # todo
@@ -99,12 +188,18 @@ def create(request_info):
     if not program_name:
         raise exceptions.ParamValueException("program_name不能为空")
 
-    program = operate.create_program(program_name, command, machines,
-                                     directory, environment,
-                                     auto_start, auto_restart,
-                                     touch_timeout, max_fail_count,
-                                     stdout_logfile, stderr_logfile)
-    return start(program)
+    program = create_process(program_name, command, machines,
+                             directory, environment,
+                             auto_start, auto_restart, touch_timeout,
+                             max_fail_count,
+                             stdout_logfile, stderr_logfile)
+
+    if program.auto_start:
+        start_process(program.id)
+
+    return {
+        "program_id": program.id
+    }
 
 
 @app.route('/start', methods=['GET', 'POST'])
@@ -123,10 +218,11 @@ def start(request_info):
             raise exceptions.ParamValueException("program_id格式不正确")
 
     program = operate.get_program(program_id=program_id,
-                                  program_name=program_name,
-                                  status=0,
-                                  lock=0)
-    return start(program)
+                                  program_name=program_name)
+
+    return {
+        "program_id": start_process(program.id)
+    }
 
 
 @app.route('/stop', methods=['GET', 'POST'])
@@ -145,10 +241,11 @@ def stop(request_info):
             raise exceptions.ParamValueException("program_id格式不正确")
 
     program = operate.get_program(program_id=program_id,
-                                  program_name=program_name,
-                                  status=1,
-                                  lock=0)
-    return stop(program)
+                                  program_name=program_name)
+
+    return {
+        "program_id": stop_process(program.id)
+    }
 
 
 @app.route('/restart', methods=['GET', 'POST'])
@@ -167,10 +264,17 @@ def restart(request_info):
             raise exceptions.ParamValueException("program_id格式不正确")
 
     program = operate.get_program(program_id=program_id,
-                                  program_name=program_name,
-                                  status=1,
-                                  lock=0)
-    return stop(program) and start(program)
+                                  program_name=program_name)
+    if program.status in CAN_STOP_STATUS:
+        stop_process(program.id) and start_process(program.id)
+    elif program.status in CAN_START_STATUS:
+        start_process(program.id)
+    else:
+        raise exceptions.RestartException()
+
+    return {
+        "program_id": program.id
+    }
 
 
 @app.route('/status', methods=['GET', 'POST'])

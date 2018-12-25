@@ -5,32 +5,33 @@ import json
 import requests
 
 from distsuper import CONFIG
+from distsuper.common import exceptions
 
 API_TIMEOUT = 30
 
 
 def create_process(program_name, command,
                    directory=None, environment=None,
-                   auto_start=True, auto_restart=True,
+                   auto_start=True,
                    machines='127.0.0.1',
-                   touch_timeout=5,
                    stdout_logfile='/dev/null', stderr_logfile='/dev/null',
-                   max_fail_count=1):
+                   touch_timeout=5,
+                   auto_restart=True, max_fail_count=1):
     """ 创建进程
     :param program_name: 程序名称，不能重复
     :param command: 执行的命令(shell script)
     :param directory: 启动路径
     :param environment: 环境变量，多个分号分隔，如：A=a;B=b;C=c
-    :param auto_start: 是否自启动
-    :param auto_restart: 是否自动重启
+    :param auto_start: 是否自启动 *******该字段已废弃*******
     :param machines: 可执行在哪些机器，多个分号分隔，如：machines='127.0.0.1;localhost'
-    :param touch_timeout: 多长时间没有touch_db，认为超时，单位秒
     :param stdout_logfile: 标准输出存储的日志文件
     :param stderr_logfile: 标准错误存储的日志文件
+    :param touch_timeout: 多长时间没有touch_db，认为超时，单位秒
+    :param auto_restart: 是否自动重启
     :param max_fail_count: 超过多少次失败后不再重试
     :return:
-        > 0  - dpid
-        = 0  - 进程创建失败
+        > 0  - 进程创建成功，dpid
+        < 0  - 进程创建失败
     """
     url = "http://%s:%s/create" % (CONFIG.DISTSUPERCTL.host,
                                    CONFIG.DISTSUPERCTL.port)
@@ -50,22 +51,26 @@ def create_process(program_name, command,
         }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("server接口请求失败: RequestException - %s" % url)
-        return 0
+        return -1
 
     if response.status_code != 200:
         logging.error("server接口请求失败: %s - %s" % (response.status_code, url))
-        return 0
+        return -1
 
     try:
         r_dict = json.loads(response.text)
     except ValueError:
         logging.error("server接口返回结果解析失败 - %s" % response.text)
-        return 0
+        return -1
 
-    if "code" not in r_dict or r_dict["code"] != 200:
+    if "code" not in r_dict:
+        logging.error("server接口返回结果格式不正确 - %s" % response.text)
+        return False
+
+    if r_dict["code"] != 200:
         logging.error("server接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
-        return 0
+        return -1
 
     return r_dict["data"]["program_id"]
 
@@ -99,7 +104,11 @@ def start_process(program_id=None, program_name=None):
         logging.error("server接口返回结果解析失败 - %s" % response.text)
         return False
 
-    if "code" not in r_dict or r_dict["code"] != 200:
+    if "code" not in r_dict:
+        logging.error("server接口返回结果格式不正确 - %s" % response.text)
+        return False
+
+    if r_dict["code"] not in (200, exceptions.AlreadyStartException.code):
         logging.error("server接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
         return False
@@ -136,7 +145,11 @@ def stop_process(program_id=None, program_name=None):
         logging.error("server接口返回结果解析失败 - %s" % response.text)
         return False
 
-    if "code" not in r_dict or r_dict["code"] != 200:
+    if "code" not in r_dict:
+        logging.error("server接口返回结果格式不正确 - %s" % response.text)
+        return False
+
+    if r_dict["code"] not in (200, exceptions.AlreadyStopException.code):
         logging.error("server接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
         return False
@@ -173,7 +186,11 @@ def restart_process(program_id=None, program_name=None):
         logging.error("server接口返回结果解析失败 - %s" % response.text)
         return False
 
-    if "code" not in r_dict or r_dict["code"] != 200:
+    if "code" not in r_dict:
+        logging.error("server接口返回结果格式不正确 - %s" % response.text)
+        return False
+
+    if r_dict["code"] not in (200, exceptions.AlreadyStopException.code):
         logging.error("server接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
         return False
@@ -208,7 +225,11 @@ def get_process(program_id=None, program_name=None):
         logging.error("server接口返回结果解析失败 - %s" % response.text)
         return None
 
-    if "code" not in r_dict or r_dict["code"] != 200:
+    if "code" not in r_dict:
+        logging.error("server接口返回结果格式不正确 - %s" % response.text)
+        return False
+
+    if r_dict["code"] != 200:
         logging.error("server接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
         return None

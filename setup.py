@@ -49,7 +49,9 @@ setup(
                       'requests',
                       'uwsgi',
                       'flask',
-                      'peewee>=3',
+                      'peewee==3.7.1',
                       'click',
-                      'configparser']
+                      'configparser',
+                      'pytest'
+                      ]
 )

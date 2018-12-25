@@ -45,13 +45,20 @@ def local_start(program_id, wait=3):
     args = json.dumps(command)
     info = json.dumps(info)
 
-    p = subprocess.Popen(['dswrapper', args, info])
+    p = subprocess.Popen(['dswrapper', args, info],
+                         stdout=subprocess.PIPE)
+    p.wait()
 
-    if not check_start_status(p.pid, wait):
+    if p.returncode != 0:
         logger.warning("进程%s启动失败" % process.name)
         raise exceptions.StartException()
 
-    return p.pid
+    pid = int(p.stdout.readline())
+    if not check_start_status(pid, wait):
+        logger.warning("进程%s启动失败" % process.name)
+        raise exceptions.StartException()
+
+    return pid
 
 
 def local_stop(program_id, wait_timeout=10):
@@ -109,5 +116,5 @@ def wait_until_stop_done(pid, wait_timeout):
             return True
 
         wait_timeout -= 1
-        if wait_timeout > 0:
+        if wait_timeout <= 0:
             return False

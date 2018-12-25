@@ -1,50 +1,131 @@
 #!-*- encoding: utf-8 -*-
 import logging
 
-from peewee import DoesNotExist, IntegrityError
+from peewee import DoesNotExist, DatabaseError
 
 from distsuper.models.models import Process
 from distsuper.common import tools, exceptions
 
+""" 进程状态(status)
+参考supervisor的进程状态转换图
+http://www.supervisord.org/_images/subprocess-transitions.png
+0   STOPPED
+10  STARTING 
+20  RUNNING
+40  STOPPING
+100 EXITED
+200 FATAL
+-1  UNKNOWN
 
-def get_program(program_id=None,
-                program_name=None,
-                status=None,
-                lock=None):
+取消了BACKOFF状态，进程启动失败后变为STOPPED状态
+autorestart只重启处于xx状态的进程
+"""
+
+
+class STATUS:
+    STOPPED = 0
+    STARTING = 10
+    RUNNING = 20
+    STOPPING = 40
+    EXITED = 100
+    FATAL = 200
+    UNKNOWN = -1
+
+
+def change_status(program_id, from_status, to_status):
+    """ 修改程序状态
+    :param program_id: 程序ID
+    :param from_status: 修改前的状态元组。程序状态不在from_status中时，修改失败
+    :param to_status: 修改后的状态
+    :return:
+        True  - 修改成功
+        False - 修改失败
+    """
+    if isinstance(from_status, int):
+        from_status = (from_status,)
+
+    fields = {
+        "status": to_status,
+        "update_time": tools.get_now_time()
+    }
+    try:
+        process = Process.select().where(Process.id == program_id).get()
+    except DoesNotExist:
+        logging.error("程序%s不存在" % program_id)
+        return False
+    except DatabaseError:
+        logging.exception("查询进程%s时，数据库发生异常" % program_id)
+        return False
+
+    if process.status not in from_status:
+        logging.error("程序%s的状态%s不是%s" % (
+            program_id, process.status, from_status))
+        return False
+
+    try:
+        ret_code = Process.update(fields) \
+            .where(Process.id == program_id,
+                   Process.status << from_status).execute()
+    except DatabaseError:
+        logging.exception("程序%s的状态%s=>%s更新时，数据库发生异常" % (
+            program_id, from_status, to_status))
+        return False
+
+    if ret_code == 0:
+        logging.warning("程序%s的状态%s=>%s更新失败，ID或状态不匹配" % (
+            program_id, from_status, to_status))
+        return False
+
+    return True
+
+
+def get_program(program_id=None, program_name=None,
+                status=None):
+    """ 单条查询程序信息，program_id和program_name至少需要一个
+    :param program_id: 程序ID
+    :param program_name: 程序名称
+    :param status: 程序状态
+    :return: 程序对象
+    """
+    if program_id is not None and program_name is not None:
+        raise exceptions.ParamValueException("program_id和program_name至少需要一个")
+
+    conditions = []
+    if program_id is not None:
+        conditions.append(Process.id == program_id)
+    if program_name is not None:
+        conditions.append(Process.name == program_name)
+    if status is not None:
+        conditions.append(Process.status == status)
+
+    try:
+        program = Process.select().where(*conditions).get()
+    except DoesNotExist:
+        raise exceptions.ProgramNotExistInDB()
+    except DatabaseError:
+        logging.exception("查询程序%s时，数据库发生异常" % program_id)
+        raise exceptions.MySQLDBException("查询程序时，数据库发生异常")
+
+    return program
+
+
+def get_programs(status=None):
+    """ 批量查询程序信息
+    :param status: 程序状态
+    :return: 程序对象列表
+    """
     conditions = []
     if status is not None:
         conditions.append(Process.status == status)
 
-    if lock is not None:
-        conditions.append(Process.lock == lock)
-
-    if program_id is not None:
-        conditions.append(Process.id == program_id)
-
-    if program_name is not None:
-        conditions.append(Process.name == program_name)
-
-    if program_id is not None and program_name is not None:
-        try:
-            program = Process.select().where(*conditions).get()
-        except DoesNotExist:
-            raise exceptions.ProgramNotExistInDB()
-        return program
-    else:
-        return Process.select().where(*conditions)
-
-
-def lock(program_id):
-    # todo 如果已上锁，等待或重试
-    if not Process.update(lock=1, lock_time=tools.get_now_time()) \
-            .where(Process.id == program_id).execute():
-        raise Exception("加锁失败")
-
-
-def unlock(program_id):
-    if Process.update(lock=0, lock_time=None) \
-            .where(Process.id == program_id).execute():
-        raise Exception("解锁失败")
+    try:
+        if conditions:
+            return Process.select().where(*conditions)
+        else:
+            return Process.select()
+    except DatabaseError:
+        logging.exception("查询程序列表时，数据库发生异常")
+        raise exceptions.MySQLDBException("查询程序列表时，数据库发生异常")
 
 
 def create_program(program_name, command, machines,
@@ -52,7 +133,7 @@ def create_program(program_name, command, machines,
                    auto_start, auto_restart, touch_timeout,
                    max_fail_count,
                    stdout_logfile, stderr_logfile):
-    """ 在数据库中添加一条program
+    """ 添加一条程序
     :param program_name:
     :param command:
     :param machines:
@@ -67,8 +148,6 @@ def create_program(program_name, command, machines,
     :return:
     """
     try:
-        program = Process.select().where(Process.name == program_name).get()
-    except DoesNotExist:
         fields = dict(name=program_name,
 
                       command=command,
@@ -84,156 +163,36 @@ def create_program(program_name, command, machines,
 
                       machine="",
                       pid=0,
-                      status=0,
+                      status=STATUS.STOPPED,
                       fail_count=0,
                       timeout_timestamp=0x7FFFFFFF
                       )
         program = Process(**fields)
-        try:
-            program.save()
-            return program
-        except IntegrityError:
-            msg = "数据库完整性错误, 请稍后重试"
-            logging.exception(msg)
-            raise exceptions.DBIntegrityException(msg)
-
-    if program.status == 0 and program.lock == 0:
-        fields = dict(command=command,
-                      machines=machines,
-                      directory=directory,
-                      environment=environment,
-                      auto_start=auto_start,
-                      auto_restart=auto_restart,
-                      touch_timeout=touch_timeout,
-                      max_fail_count=max_fail_count,
-                      stdout_logfile=stdout_logfile,
-                      stderr_logfile=stderr_logfile,
-
-                      machine="",
-                      pid=0,
-                      status=0,
-                      fail_count=0,
-                      timeout_timestamp=0x7FFFFFFF,
-
-                      create_time=tools.get_now_time(),
-                      update_time=tools.get_now_time())
-        ret_code = Process.update(**fields) \
-            .where(Process.name == program_name) \
-            .execute()
-        if ret_code == 1:
-            return program
-        else:
-            msg = "创建程序%s，更新数据库时发生异常" % program_name
-            logging.error(msg)
-            raise exceptions.DBConflictException(msg)
-    else:
-        msg = "程序%s运行中或被锁定，无法重新创建" % program_name
-        logging.error(msg)
-        raise exceptions.AlreadExistsException(msg, data={
-            'program': program
-        })
+        program.save()
+        return program
+    except DatabaseError:
+        logging.exception("新增程序时，数据库发生异常")
+        raise exceptions.MySQLDBException("新增程序时，数据库发生异常")
 
 
-def start_program(machine, pid, program_id=None, program_name=None):
-    """
-    :param machine:
-    :param pid:
+def update_program(program_id, **fields):
+    """ 更新一条进程
     :param program_id:
-    :param program_name:
     :return:
     """
 
-    if program_id is not None:
-        try:
-            Process.select().where(Process.id == program_id).get()
-        except DoesNotExist:
-            msg = "程序id=%s的配置不存在" % program_id
-            logging.error(msg)
-            raise exceptions.NoConfigException(msg)
-
-        fields = dict(status=1,
-                      update_time=tools.get_now_time(),
-
-                      machine=machine,
-                      pid=pid,
-                      fail_count=0,
-                      timeout_timestamp=0x7fffffff)
-        ret_code = Process.update(**fields) \
-            .where(Process.id == program_id,
-                   Process.status == 0) \
-            .execute()
-    elif program_name is not None:
-        try:
-            Process.select().where(Process.name == program_name).get()
-        except DoesNotExist:
-            msg = "程序name=%s的配置不存在" % program_name
-            logging.error(msg)
-            raise exceptions.NoConfigException(msg)
-
-        fields = dict(status=1,
-                      update_time=tools.get_now_time(),
-
-                      machine=machine,
-                      pid=pid,
-                      fail_count=0,
-                      timeout_timestamp=0x7fffffff)
-        ret_code = Process.update(**fields) \
-            .where(Process.name == program_name,
-                   Process.status == 0) \
-            .execute()
-    else:
-        msg = "请求参数缺少program_id/program_name"
+    try:
+        Process.select().where(Process.id == program_id).get()
+    except DoesNotExist:
+        msg = "程序id=%s的配置不存在" % program_id
         logging.error(msg)
-        raise exceptions.LackParamException(msg)
+        raise exceptions.NoConfigException(msg)
 
-    if ret_code:
+    ret_code = Process.update(**fields) \
+        .where(Process.id == program_id) \
+        .execute()
+
+    if ret_code == 1:
         return True
-    else:
-        logging.error("程序%s/%s没有处于停止状态" % (program_id, program_name))
-        return False
 
-
-def stop_program(program_id=None, program_name=None):
-    """
-    :param program_id:
-    :param program_name:
-    :return:
-    """
-    if program_id is not None:
-        try:
-            Process.select().where(Process.id == program_id).get()
-        except DoesNotExist:
-            msg = "程序id=%s的配置不存在" % program_id
-            logging.error(msg)
-            raise exceptions.NoConfigException(msg)
-
-        fields = dict(status=0,
-                      update_time=tools.get_now_time())
-        ret_code = Process.update(**fields) \
-            .where(Process.id == program_id,
-                   Process.status == 1) \
-            .execute()
-    elif program_name is not None:
-        try:
-            Process.select().where(Process.name == program_name).get()
-        except DoesNotExist:
-            msg = "程序name=%s的配置不存在" % program_name
-            logging.error(msg)
-            raise exceptions.NoConfigException(msg)
-
-        fields = dict(status=0,
-                      update_time=tools.get_now_time())
-        ret_code = Process.update(**fields) \
-            .where(Process.name == program_name,
-                   Process.status == 1) \
-            .execute()
-    else:
-        msg = "请求参数program_id和program_name至少存在一个"
-        logging.error(msg)
-        raise exceptions.LackParamException(msg)
-
-    if ret_code:
-        return True
-    else:
-        logging.error("程序%s/%s没有处于运行状态" % (program_id, program_name))
-        return False
+    raise exceptions.UpdateDBException()

@@ -21,6 +21,7 @@ database = MySQLDB(
 
 def get_conn():
     connection = pymysql.connect(host=CONFIG.DATABASE.host,
+                                 port=CONFIG.DATABASE.port,
                                  user=CONFIG.DATABASE.user,
                                  password=CONFIG.DATABASE.password,
                                  charset='utf8',
@@ -29,6 +30,7 @@ def get_conn():
 
 
 def create_database(db):
+    # noinspection SqlNoDataSourceInspection
     sql = """CREATE DATABASE IF NOT EXISTS %s 
             DEFAULT CHARSET utf8 COLLATE utf8_general_ci;""" % db
     conn = get_conn()
@@ -37,6 +39,7 @@ def create_database(db):
 
 
 def drop_database(db):
+    # noinspection SqlNoDataSourceInspection
     sql = """DROP DATABASE IF EXISTS %s""" % db
     conn = get_conn()
     cursor = conn.cursor()
@@ -49,7 +52,7 @@ class BaseModel(Model):
     class Meta:
         database = database
 
-    id = PrimaryKeyField()
+    id = AutoField()
     create_time = DateTimeField(index=True,
                                 default=datetime.now)  # 创建时间
     update_time = DateTimeField(index=True,

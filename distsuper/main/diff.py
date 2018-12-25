@@ -1,158 +1,48 @@
 #!-*- encoding: utf-8 -*-
 import time
-import datetime
 import logging
-import random
-from datetime import timedelta
-
-from distsuper.common import tools
-from distsuper.api.agent import start_process, stop_process, check_status
+from distsuper.api.server import start_process, stop_process
 from distsuper.models.models import Process
+from distsuper.common.tools import retry
 
 
+@retry(sleep_time=3, logger=logging)
 def diff():
     while True:
-        try:
-            # 正在运行的
-            processes = Process.select() \
-                .where(Process.cstatus == 1,
-                       Process.pstatus == 2)
-            for process in processes:
-                diff_one(process)
+        # todo
+        # 需要启动的
+        # need_to_start()
 
-            # 正在启动的
-            processes = Process.select() \
-                .where(Process.cstatus == 1,
-                       Process.pstatus == 1)
-            for process in processes:
-                diff_one(process)
+        # 锁超时的
+        # lock_timeout()
 
-            # 正在停止的
-            processes = Process.select() \
-                .where(Process.cstatus == 0,
-                       Process.pstatus == 3)
-            for process in processes:
-                diff_one(process)
-
-            # 应该停止的
-            processes = Process.select() \
-                .where(Process.cstatus == 0,
-                       Process.pstatus == 2)
-            for process in processes:
-                diff_one(process)
-
-            # 应该启动的
-            processes = Process.select() \
-                .where(Process.cstatus == 1,
-                       Process.pstatus == 0)
-            for process in processes:
-                diff_one(process)
-
-            # 配置已更新的
-            # processes = Process.select() \
-            #     .where(Process.config_updated == 1)
-            # for process in processes:
-            #     diff_one(process)
-
-            time.sleep(1)
-        except Exception as e:
-            logging.exception("some exception is happened")
-            raise Exception(e)
+        # 休息
+        time.sleep(5)
 
 
-def get_machine(process):
-    """ 随机挑一台可用机器
-    :param process:
+def need_to_start():
+    """ autorestart=True而且长时间没有touchdb的
     :return:
     """
-    if process.machine:
-        return process.machine
+    processes = Process.select().where(
+        Process.status == 1,
+        Process.touch_timeout < int(time.time()),
+        Process.lock == 0
+    )
+    for process in processes:
+        start_process(program_id=process.id)
 
-    if process.machines:
-        machines = process.machines.split(",")
-        return random.choice(machines)
 
-    return "localhost"
-
-
-def diff_one(process):
-    """ 同步process之间的状态
+def lock_timeout():
+    """ 长时间上锁，以数据库状态为准
     :return:
     """
-    cstatus = process.cstatus
-    pstatus = process.pstatus
-    now_timestamp = time.time()
-
-    # 无需处理
-    if cstatus == 1 and pstatus == 2:
-        if process.timeout_timestamp < now_timestamp:
-            if not check_status(process.id, process.machine):
-                retcode = Process.update(pstatus=0) \
-                    .where(Process.id == process.id,
-                           Process.pstatus == 2,
-                           Process.cstatus == 1,
-                           Process.timeout_timestamp < now_timestamp) \
-                    .execute()
-                if retcode == 1:
-                    logging.info("重置已挂掉的进程%s" % process.name)
-        return True
-    if cstatus == 0 and pstatus == 0:
-        return True
-
-    # 超时后重试
-    if pstatus == 1:
-        if datetime.datetime.now() - process.update_time > \
-                timedelta(seconds=60):
-            logging.warning("%s启动超时，重试" % process.name)
-            process.pstatus = 0
-            process.update_time = tools.get_now_time()
-            process.save()
-            return False
-        return True
-    if pstatus == 3:
-        if datetime.datetime.now() - process.update_time > \
-                timedelta(seconds=60):
-            logging.warning("%s停止超时，重试" % process.name)
-            process.pstatus = 2
-            process.update_time = tools.get_now_time()
-            process.save()
-            return False
-        return True
-
-    # 启动
-    if cstatus == 1 and pstatus == 0:
-        # 如果失败很多次，就不要启动了
-        if process.max_fail_count is not None and \
-                process.max_fail_count < process.fail_count:
-            logging.warning("%s连续失败次数超过%s次，不再重试" % (
-                process.name, process.max_fail_count))
-            process.pstatus = 4
-            process.update_time = tools.get_now_time()
-            process.save()
-            return False
-
-        # 任务已经建立超过一分钟，但是仍然没有启动，diff介入
-        if datetime.datetime.now() - process.update_time > \
-                timedelta(seconds=60):
-            best_machine = get_machine(process)
-
-            ret = start_process(process.id, best_machine)
-            if ret:
-                logging.info("进程%s的启动请求已发出" % process.name)
-                return True
-            else:
-                logging.error("进程%s启动失败" % process.name)
-                return False
-
-    # 停止
-    if cstatus == 0 and pstatus == 2:
-        # 任务已经建立超过一分钟，但是仍然没有启动，diff介入
-        if datetime.datetime.now() - process.update_time > \
-                timedelta(seconds=60):
-            ret = stop_process(process.id, process.machine)
-            if ret:
-                logging.info("进程%s的停止请求已发出" % process.name)
-                return True
-            else:
-                logging.error("进程%s停止失败" % process.name)
-                return False
+    processes = Process.select().where(
+        Process.lock == 1,
+        Process.lock_time + 60 < int(time.time())
+    )
+    for process in processes:
+        if process.status == 1:
+            start_process(program_id=process.id)
+        else:
+            stop_process(program_id=process.id)

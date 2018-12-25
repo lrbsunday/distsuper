@@ -5,7 +5,7 @@ from . import BaseModel
 
 class Process(BaseModel):
     class Meta:
-        db_table = "process"
+        table_name = "process"
 
     # 配置信息
     name = CharField(max_length=128, unique=True,
@@ -31,11 +31,6 @@ class Process(BaseModel):
                                  help_text="进程保活时间")
     max_fail_count = IntegerField(default=3, null=True,
                                   help_text="默认最大失败次数，失败第4次时将不会重试")
-
-    # 锁
-    lock = IntegerField(default=0,
-                        help_text="锁定状态")
-    lock_time = DateTimeField(null=True, help_text="锁定时间")
 
     # 运行状态
     status = IntegerField(default=1,
