@@ -80,20 +80,19 @@ def register_signal_handlers(process, info, callbacks):
                             default_callback=defaultcallback)
 
 
-def touch_db(program_name, pid, touch_timeout):
-    logging.info("进程%s运行中..." % program_name)
+def touch_db(program_id, touch_timeout):
+    logging.info("进程%s运行中..." % program_id)
     timeout_timestamp = int(time.time() + touch_timeout)
     # noinspection PyBroadException
     try:
         ret = ProcessModel.update(timeout_timestamp=timeout_timestamp) \
-            .where(ProcessModel.name == program_name,
-                   ProcessModel.pid == pid) \
+            .where(ProcessModel.id == program_id) \
             .execute()
     except Exception:
         logging.exception("touch_db异常")
         return False
     if ret == 0:
-        logging.warning("touch_db失败，没有这条记录，%s可能已停止" % program_name)
+        logging.warning("touch_db失败，没有这条记录，%s可能已停止" % program_id)
         return False
     return True
 
@@ -154,8 +153,7 @@ def task_wrapper(args, info):
             if _stop_info:
                 break
             time.sleep(1)
-            touch_db(info['program_name'], info['pid'],
-                     info['touch_timeout'])
+            touch_db(info['program_id'], info['touch_timeout'])
 
     # touch db 线程
     stop_info = {}
@@ -179,12 +177,11 @@ def task_wrapper(args, info):
 
 def main():
     try:
-        process_id = os.fork()
-    except OSError as e:
+        pid = os.fork()
+    except OSError:
         sys.exit(1)
 
-    if process_id != 0:
-        print(process_id)
+    if pid != 0:
         sys.exit(0)
 
     os.setsid()

@@ -3,7 +3,7 @@ import logging
 
 from playhouse.shortcuts import model_to_dict
 
-from distsuper.common import handlers, exceptions
+from distsuper.common import handlers, exceptions, tools
 from distsuper.main import operate
 from distsuper.main.operate import STATUS
 from distsuper.api import agent
@@ -23,7 +23,7 @@ CAN_START_STATUS = (STATUS.STOPPED, STATUS.EXITED, STATUS.FATAL, STATUS.UNKNOWN)
 CAN_STOP_STATUS = (STATUS.RUNNING, STATUS.EXITED, STATUS.FATAL, STATUS.UNKNOWN)
 
 
-def create_process(program_name, command, machines,
+def create_process(program_id, program_name, command, machines,
                    directory, environment,
                    auto_start, auto_restart, touch_timeout,
                    max_fail_count,
@@ -31,7 +31,8 @@ def create_process(program_name, command, machines,
     try:
         program = operate.get_program(program_name=program_name)
     except exceptions.ProgramNotExistInDB:
-        return operate.create_program(program_name, command, machines,
+        return operate.create_program(program_id, program_name,
+                                      command, machines,
                                       directory, environment,
                                       auto_start, auto_restart, touch_timeout,
                                       max_fail_count,
@@ -43,6 +44,7 @@ def create_process(program_name, command, machines,
         raise exceptions.AlreadExistsException(msg)
 
     if operate.update_program(program.id,
+                              id=program_id,
                               command=command,
                               machines=machines,
                               directory=directory,
@@ -54,7 +56,6 @@ def create_process(program_name, command, machines,
                               stdout_logfile=stdout_logfile,
                               stderr_logfile=stderr_logfile,
                               machine="",
-                              pid=0,
                               status=STATUS.STOPPED,
                               fail_count=0,
                               timeout_timestamp=0x7FFFFFFF):
@@ -79,14 +80,13 @@ def start_process(program_id):
         logging.error("程序%s修改状态失败" % program.id)
         raise exceptions.StartException()
 
-    pid = agent.start_process(program.id, machine)
-    if not pid:
+    ret = agent.start_process(program.id, machine)
+    if not ret:
         logging.error("程序%s启动失败" % program.id)
         operate.change_status(program.id, STATUS.STARTING, STATUS.STOPPED)
         raise exceptions.StartException()
 
     fields = dict(machine=machine,
-                  pid=pid,
                   fail_count=0,
                   timeout_timestamp=0x7fffffff)
     if operate.update_program(program_id=program.id, **fields):
@@ -188,11 +188,14 @@ def create(request_info):
     if not program_name:
         raise exceptions.ParamValueException("program_name不能为空")
 
-    program = create_process(program_name, command, machines,
+    program_id = tools.gen_uuid()
+    logging.info(program_id)
+    program = create_process(program_id, program_name, command, machines,
                              directory, environment,
                              auto_start, auto_restart, touch_timeout,
                              max_fail_count,
                              stdout_logfile, stderr_logfile)
+    logging.info(program.id)
 
     if program.auto_start:
         start_process(program.id)
@@ -211,12 +214,6 @@ def start(request_info):
     if program_id is None and program_name is None:
         raise exceptions.LackParamException("参数program_id和program_name至少存在一个")
 
-    if program_id is not None:
-        try:
-            program_id = int(program_id)
-        except ValueError:
-            raise exceptions.ParamValueException("program_id格式不正确")
-
     program = operate.get_program(program_id=program_id,
                                   program_name=program_name)
 
@@ -234,12 +231,6 @@ def stop(request_info):
     if program_id is None and program_name is None:
         raise exceptions.LackParamException("参数program_id和program_name至少存在一个")
 
-    if program_id is not None:
-        try:
-            program_id = int(program_id)
-        except ValueError:
-            raise exceptions.ParamValueException("program_id格式不正确")
-
     program = operate.get_program(program_id=program_id,
                                   program_name=program_name)
 
@@ -256,12 +247,6 @@ def restart(request_info):
 
     if program_id is None and program_name is None:
         raise exceptions.LackParamException("参数program_id和program_name至少存在一个")
-
-    if program_id is not None:
-        try:
-            program_id = int(program_id)
-        except ValueError:
-            raise exceptions.ParamValueException("program_id格式不正确")
 
     program = operate.get_program(program_id=program_id,
                                   program_name=program_name)

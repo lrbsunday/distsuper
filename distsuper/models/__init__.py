@@ -52,7 +52,7 @@ class BaseModel(Model):
     class Meta:
         database = database
 
-    id = AutoField()
+    id = CharField(max_length=40, primary_key=True)
     create_time = DateTimeField(index=True,
                                 default=datetime.now)  # 创建时间
     update_time = DateTimeField(index=True,

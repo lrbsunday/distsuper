@@ -60,7 +60,8 @@ def request_pre_handler():
                                                     traceback.format_exc()))
                 res_str = str(exceptions.MySQLDBException())
             except exceptions.BaseExc as e:
-                logger.info('%s(%s) - error: %s' % (_uuid, api_name, str(e)))
+                logger.info('%s(%s) - error: %s' % (_uuid, api_name,
+                                                    traceback.format_exc()))
                 res_str = str(e)
             except Exception:
                 logger.info('%s(%s) - error: %s' % (_uuid, api_name,

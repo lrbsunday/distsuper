@@ -13,6 +13,8 @@ import threading
 from multiprocessing.pool import ThreadPool
 from traceback import format_exc as einfo
 
+from peewee import UUIDField
+
 from .exceptions import *
 
 
@@ -35,7 +37,7 @@ def time_it(module_name, logger=None, output_args=None, output_kwargs=None):
         @functools.wraps(func)
         def wrapper(*arg, **kwargs):
             time1 = time.time()
-            uuid_ = str(uuid.uuid4())
+            uuid_ = gen_uuid()
             if logger:
                 output_msg = '[%s] %s.%s开始执行' % (
                     uuid_, module_name, func.__name__)
@@ -82,7 +84,8 @@ def get_logger(name, file_name, level=logging.INFO):
 
     logger.setLevel(level)
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(lineno)d - %(message)s')
+        "[%(name)s][%(asctime)s][%(levelname)s][%(filename)s:%(lineno)d] "
+        "%(message)s")
 
     if file_name:
         fh = logging.FileHandler(file_name)
@@ -202,3 +205,7 @@ def unicode_count(value):
     length = len(value)
     utf8_length = len(value.encode('utf-8'))
     return (utf8_length - length) // 2
+
+
+def gen_uuid():
+    return str(uuid.uuid4())

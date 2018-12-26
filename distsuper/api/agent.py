@@ -38,7 +38,7 @@ def start_process(program_id, machine):
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
         return False
 
-    return r_dict["data"]["pid"]
+    return True
 
 
 def stop_process(program_id, machine):
@@ -73,11 +73,10 @@ def stop_process(program_id, machine):
     return True
 
 
-def check_process_status(program_id, machine, pid):
+def check_process_status(program_id, machine):
     """
     :param program_id:
     :param machine:
-    :param pid:
     :return:
         True  运行中
         False 不存在
@@ -87,7 +86,6 @@ def check_process_status(program_id, machine, pid):
     try:
         response = requests.post(url, json={
             "program_id": program_id,
-            "pid": pid
         }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("agent接口请求失败: RequestException - %s" % url)

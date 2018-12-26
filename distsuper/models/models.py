@@ -37,8 +37,6 @@ class Process(BaseModel):
                           help_text="0 停止中, 1 运行中")
     machine = CharField(max_length=256,
                         help_text="实际执行程序的机器")
-    pid = IntegerField(default=0,
-                       help_text="进程ID")
     fail_count = IntegerField(default=0,
                               help_text="当前失败次数")
     timeout_timestamp = IntegerField(default=0x7FFFFFFF,

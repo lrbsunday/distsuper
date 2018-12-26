@@ -1,5 +1,6 @@
 #!-*- encoding: utf-8 -*-
 import os
+import re
 import json
 import subprocess
 import time
@@ -9,6 +10,7 @@ from peewee import DoesNotExist
 
 from distsuper.common import exceptions
 from distsuper.models.models import Process
+from distsuper.scripts.common import get_pid
 
 logger = logging.getLogger('agent')
 
@@ -53,12 +55,11 @@ def local_start(program_id, wait=3):
         logger.warning("进程%s启动失败" % process.name)
         raise exceptions.StartException()
 
-    pid = int(p.stdout.readline())
-    if not check_start_status(pid, wait):
+    if not check_start_status(program_id, wait):
         logger.warning("进程%s启动失败" % process.name)
         raise exceptions.StartException()
 
-    return pid
+    return True
 
 
 def local_stop(program_id, wait_timeout=10):
@@ -74,10 +75,15 @@ def local_stop(program_id, wait_timeout=10):
         logger.warning(msg)
         raise exceptions.AlreadyStopException()
 
-    args = ['kill', str(process.pid)]
+    pid = get_pid(program_id)
+    if pid == 0:
+        logger.warning("要停止的进程不存在，忽略")
+        return True
+
+    args = ['kill', str(pid)]
     subprocess.Popen(args).wait()
 
-    if not wait_until_stop_done(process.pid, wait_timeout):
+    if not wait_until_stop_done(program_id, wait_timeout):
         logger.warning("进程%s停止失败" % process.name)
         raise exceptions.StopException()
 
@@ -93,26 +99,32 @@ def get_status(program_id):
     if process.status == 0:
         return False
 
-    pid = process.pid
-    return check_pid(pid)
+    return check_process(program_id)
 
 
-def check_pid(pid):
-    for line in os.popen("ps aux|awk '{print $2}'|grep -E '^%s$'" % pid):
+def check_process(program_id):
+    pid = get_pid(program_id)
+
+    check_process_command = """ ps aux | 
+                                awk '{print $2}' |
+                                grep -E '^%s$'""" % pid
+    check_process_command = check_process_command.replace("\n", "")
+    check_process_command = re.sub(r" +", " ", check_process_command)
+    for line in os.popen(check_process_command):
         if line.strip() == str(pid):
             return True
     return False
 
 
-def check_start_status(pid, wait):
+def check_start_status(program_id, wait):
     time.sleep(wait)
-    return check_pid(pid)
+    return check_process(program_id)
 
 
-def wait_until_stop_done(pid, wait_timeout):
+def wait_until_stop_done(program_id, wait_timeout):
     while True:
         time.sleep(1)
-        if not check_pid(pid):
+        if not check_process(program_id):
             return True
 
         wait_timeout -= 1

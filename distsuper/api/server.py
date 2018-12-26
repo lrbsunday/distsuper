@@ -30,8 +30,8 @@ def create_process(program_name, command,
     :param auto_restart: 是否自动重启
     :param max_fail_count: 超过多少次失败后不再重试
     :return:
-        > 0  - 进程创建成功，dpid
-        < 0  - 进程创建失败
+        uuid  - 进程创建成功
+        ""    - 进程创建失败
     """
     url = "http://%s:%s/create" % (CONFIG.DISTSUPERCTL.host,
                                    CONFIG.DISTSUPERCTL.port)
@@ -51,17 +51,17 @@ def create_process(program_name, command,
         }, timeout=API_TIMEOUT)
     except requests.RequestException:
         logging.error("server接口请求失败: RequestException - %s" % url)
-        return -1
+        return ""
 
     if response.status_code != 200:
         logging.error("server接口请求失败: %s - %s" % (response.status_code, url))
-        return -1
+        return ""
 
     try:
         r_dict = json.loads(response.text)
     except ValueError:
         logging.error("server接口返回结果解析失败 - %s" % response.text)
-        return -1
+        return ""
 
     if "code" not in r_dict:
         logging.error("server接口返回结果格式不正确 - %s" % response.text)
@@ -70,7 +70,7 @@ def create_process(program_name, command,
     if r_dict["code"] != 200:
         logging.error("server接口状态码异常：%s - %s" % (
             r_dict.get("code", -1), r_dict.get("dmsg", "")))
-        return -1
+        return ""
 
     return r_dict["data"]["program_id"]
 

@@ -128,12 +128,13 @@ def get_programs(status=None):
         raise exceptions.MySQLDBException("查询程序列表时，数据库发生异常")
 
 
-def create_program(program_name, command, machines,
+def create_program(program_id, program_name, command, machines,
                    directory, environment,
                    auto_start, auto_restart, touch_timeout,
                    max_fail_count,
                    stdout_logfile, stderr_logfile):
     """ 添加一条程序
+    :param program_id: UUID
     :param program_name:
     :param command:
     :param machines:
@@ -148,7 +149,8 @@ def create_program(program_name, command, machines,
     :return:
     """
     try:
-        fields = dict(name=program_name,
+        fields = dict(id=program_id,
+                      name=program_name,
 
                       command=command,
                       machines=machines,
@@ -162,12 +164,11 @@ def create_program(program_name, command, machines,
                       stderr_logfile=stderr_logfile,
 
                       machine="",
-                      pid=0,
                       status=STATUS.STOPPED,
                       fail_count=0,
                       timeout_timestamp=0x7FFFFFFF
                       )
-        program = Process(**fields)
+        program = Process.create(**fields)
         program.save()
         return program
     except DatabaseError:

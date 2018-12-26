@@ -13,7 +13,7 @@ init_db(True)
 class TestAPI(object):
     def test_api_by_id(self):
         dpid = server.create_process("test_api_by_id", "sleep 60")  # 创建进程
-        assert dpid > 0
+        assert dpid
         assert server.get_process(program_id=dpid)["status"] == STATUS.RUNNING
 
         assert server.stop_process(program_id=dpid)  # 正常停止
@@ -43,7 +43,7 @@ class TestAPI(object):
     def test_server_by_name(self):
         dpid = server.create_process("test_server_by_name",
                                      "sleep 60")  # 创建进程
-        assert dpid > 0
+        assert dpid
         process = server.get_process(program_id=dpid)
         assert server.get_process(program_id=dpid)["status"] == STATUS.RUNNING
 
@@ -93,7 +93,7 @@ class TestAPI(object):
                                      stdout_logfile=stdout_logfile,
                                      stderr_logfile=stderr_logfile,
                                      max_fail_count=max_fail_count)
-        assert dpid > 0
+        assert dpid
         process = server.get_process(program_id=dpid)
         assert process["id"] == dpid
         assert process["name"] == name
@@ -116,7 +116,7 @@ class TestAPI(object):
                                      directory=tmp_for_test,
                                      stdout_logfile="test_directory.log",
                                      stderr_logfile="test_directory.log")
-        assert dpid > 0
+        assert dpid
         assert server.stop_process(program_id=dpid)  # 清理
 
     def test_environment(self):
@@ -128,7 +128,7 @@ class TestAPI(object):
                                      environment=environment,
                                      stdout_logfile="test_environment.log",
                                      stderr_logfile="test_environment.log")
-        assert dpid > 0
+        assert dpid
         assert server.stop_process(program_id=dpid)  # 清理
 
     def test_logfile(self):
@@ -138,7 +138,7 @@ class TestAPI(object):
                                      directory=tmp_for_test,
                                      stdout_logfile="test_logfile_stdout.log",
                                      stderr_logfile="test_logfile_stderr.log")
-        assert dpid > 0
+        assert dpid
         assert server.stop_process(program_id=dpid)  # 清理
 
         with open(os.path.join(tmp_for_test, "test_logfile_stdout.log")) as fp:
@@ -157,7 +157,7 @@ class TestAPI(object):
                                      machines=machines,
                                      stdout_logfile="test_machines.log",
                                      stderr_logfile="test_machines.log")
-        assert dpid > 0
+        assert dpid
         assert server.stop_process(program_id=dpid)  # 清理
 
         name = "test_machines"
@@ -168,7 +168,7 @@ class TestAPI(object):
                                      machines=machines,
                                      stdout_logfile="test_machines.log",
                                      stderr_logfile="test_machines.log")
-        assert dpid < 0
+        assert dpid == ""
 
     def test_auto_start(self):
         name = "test_auto_start"
@@ -178,7 +178,7 @@ class TestAPI(object):
                                      directory=tmp_for_test,
                                      stdout_logfile="test_auto_start.log",
                                      stderr_logfile="test_auto_start.log")
-        assert dpid > 0
+        assert dpid
         assert server.get_process(program_id=dpid)["status"] == STATUS.STOPPED
 
     def test_auto_restart(self):
