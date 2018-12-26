@@ -71,6 +71,15 @@ class TestAPI(object):
         assert server.stop_process(program_name=process["name"])  # 清理
         assert server.get_process(program_id=dpid)["status"] == STATUS.STOPPED
 
+    def test_create_twice(self):
+        dpid = server.create_process("test_create_twice",
+                                     "sleep 60",
+                                     auto_start=False)  # 创建进程
+        assert dpid
+        dpid = server.create_process("test_create_twice",
+                                     "sleep 60")  # 创建进程
+        assert dpid
+
     def test_status(self):
         name = "test_status"
         command = "sleep 60"
@@ -132,7 +141,7 @@ class TestAPI(object):
         assert server.stop_process(program_id=dpid)  # 清理
 
     def test_logfile(self):
-        name = "test_environment"
+        name = "test_logfile"
         command = "echo stdout && echo stderr 1>&2 && sleep 60"
         dpid = server.create_process(name, command,
                                      directory=tmp_for_test,

@@ -164,6 +164,11 @@ class RestartException(BaseExc):
     msg = "程序重启异常"
 
 
+class CreateException(BaseExc):
+    code = 530
+    msg = "程序创建异常"
+
+
 exception_code_mapping = dict()
 items = list(globals().values())
 for item in items:

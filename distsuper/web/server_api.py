@@ -59,7 +59,10 @@ def create_process(program_id, program_name, command, machines,
                               status=STATUS.STOPPED,
                               fail_count=0,
                               timeout_timestamp=0x7FFFFFFF):
-        return operate.get_program(program_id=program.id)
+        return operate.get_program(program_id=program_id)
+    else:
+        logging.error("程序创建失败")
+        raise exceptions.CreateException()
 
 
 def start_process(program_id):
