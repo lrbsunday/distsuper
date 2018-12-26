@@ -63,7 +63,8 @@ def time_it(module_name, logger=None, output_args=None, output_kwargs=None):
     return decro
 
 
-def get_logger(name, file_name, level=logging.INFO):
+def get_logger(name, file_name=None, level=logging.INFO,
+               reset=False):
     """
     多次创建只有一份handlers
     支持root_logger和normal_logger的创建
@@ -73,14 +74,20 @@ def get_logger(name, file_name, level=logging.INFO):
     :param name:
     :param file_name:
     :param level:
+    :param reset: 是否忽略之前的handlers
     :return:
     """
     if name:
         logger = logging.getLogger(name)
     else:
         logger = logging.getLogger()
+
     if logger.handlers:
-        return logger
+        if reset:
+            for handler in logger.handlers:
+                logger.handlers.remove(handler)
+        else:
+            return logger
 
     logger.setLevel(level)
     formatter = logging.Formatter(

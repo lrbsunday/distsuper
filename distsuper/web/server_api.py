@@ -278,6 +278,6 @@ def status(request_info):
                                       status=_status)
         return model_to_dict(program, recurse=False)
     else:
-        programs = operate.get_program()
+        programs = operate.get_programs()
         return [model_to_dict(program, recurse=False)
                 for program in programs]

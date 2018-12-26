@@ -1,7 +1,12 @@
 #!-*- encoding: utf-8 -*-
 import os
+import logging
+
 from flask import Flask
 
+from distsuper.common import tools
+
+tools.get_logger(None, None, level=logging.INFO)
 app = Flask(__name__)
 
 

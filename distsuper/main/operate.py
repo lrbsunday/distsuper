@@ -21,6 +21,8 @@ http://www.supervisord.org/_images/subprocess-transitions.png
 autorestart只重启处于xx状态的进程
 """
 
+logger = logging.getLogger()
+
 
 class STATUS:
     STOPPED = 0
@@ -51,14 +53,14 @@ def change_status(program_id, from_status, to_status):
     try:
         process = Process.select().where(Process.id == program_id).get()
     except DoesNotExist:
-        logging.error("程序%s不存在" % program_id)
+        logger.error("程序%s不存在" % program_id)
         return False
     except DatabaseError:
-        logging.exception("查询进程%s时，数据库发生异常" % program_id)
+        logger.exception("查询进程%s时，数据库发生异常" % program_id)
         return False
 
     if process.status not in from_status:
-        logging.error("程序%s的状态%s不是%s" % (
+        logger.error("程序%s的状态%s不是%s" % (
             program_id, process.status, from_status))
         return False
 
@@ -67,12 +69,12 @@ def change_status(program_id, from_status, to_status):
             .where(Process.id == program_id,
                    Process.status << from_status).execute()
     except DatabaseError:
-        logging.exception("程序%s的状态%s=>%s更新时，数据库发生异常" % (
+        logger.exception("程序%s的状态%s=>%s更新时，数据库发生异常" % (
             program_id, from_status, to_status))
         return False
 
     if ret_code == 0:
-        logging.warning("程序%s的状态%s=>%s更新失败，ID或状态不匹配" % (
+        logger.warning("程序%s的状态%s=>%s更新失败，ID或状态不匹配" % (
             program_id, from_status, to_status))
         return False
 
@@ -103,7 +105,7 @@ def get_program(program_id=None, program_name=None,
     except DoesNotExist:
         raise exceptions.ProgramNotExistInDB()
     except DatabaseError:
-        logging.exception("查询程序%s时，数据库发生异常" % program_id)
+        logger.exception("查询程序%s时，数据库发生异常" % program_id)
         raise exceptions.MySQLDBException("查询程序时，数据库发生异常")
 
     return program
@@ -124,7 +126,7 @@ def get_programs(status=None):
         else:
             return Process.select()
     except DatabaseError:
-        logging.exception("查询程序列表时，数据库发生异常")
+        logger.exception("查询程序列表时，数据库发生异常")
         raise exceptions.MySQLDBException("查询程序列表时，数据库发生异常")
 
 
@@ -172,7 +174,7 @@ def create_program(program_id, program_name, command, machines,
         program.save()
         return program
     except DatabaseError:
-        logging.exception("新增程序时，数据库发生异常")
+        logger.exception("新增程序时，数据库发生异常")
         raise exceptions.MySQLDBException("新增程序时，数据库发生异常")
 
 
@@ -186,7 +188,7 @@ def update_program(program_id, **fields):
         Process.select().where(Process.id == program_id).get()
     except DoesNotExist:
         msg = "程序id=%s的配置不存在" % program_id
-        logging.error(msg)
+        logger.error(msg)
         raise exceptions.NoConfigException(msg)
 
     ret_code = Process.update(**fields) \

@@ -58,18 +58,17 @@ def status():
         logging.error("获取进程信息失败")
         return
 
-    titles = ["ID", "名称", "状态", "机器", "PID", "启动时间", "命令"]
+    titles = ["ID", "名称", "状态", "机器", "启动时间", "命令"]
     results = [titles]
     for process in processes:
         name = process["name"]
         _status = "运行中" if process["status"] == 1 else "已停止"
         machine = process["machine"] or "-"
-        pid = process["pid"] or "-"
         start_time = process["create_time"] or "-"
         command = process["command"] or "-"
 
         results.append([str(process["id"]), name, str(_status),
-                        machine, str(pid), start_time, command])
+                        machine, start_time, command])
 
     if results:
         width_list = []

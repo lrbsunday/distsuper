@@ -9,9 +9,10 @@ import threading
 import subprocess
 
 from distsuper.models.models import Process as ProcessModel
+from distsuper.common import tools
+from distsuper.main.operate import STATUS
 
-logger = logging.getLogger("wrapper")
-logger.setLevel(logging.INFO)
+logger = tools.get_logger("wrapper", level=logging.INFO)
 
 
 # noinspection PyUnusedLocal
@@ -81,18 +82,21 @@ def register_signal_handlers(process, info, callbacks):
 
 
 def touch_db(program_id, touch_timeout):
-    logging.info("进程%s运行中..." % program_id)
+    logger.info("进程%s运行中..." % program_id)
     timeout_timestamp = int(time.time() + touch_timeout)
     # noinspection PyBroadException
     try:
         ret = ProcessModel.update(timeout_timestamp=timeout_timestamp) \
-            .where(ProcessModel.id == program_id) \
+            .where(ProcessModel.id == program_id,
+                   ProcessModel.status << (STATUS.STARTING,
+                                           STATUS.RUNNING,
+                                           STATUS.STOPPING)) \
             .execute()
     except Exception:
-        logging.exception("touch_db异常")
+        logger.exception("touch_db异常")
         return False
     if ret == 0:
-        logging.warning("touch_db失败，没有这条记录，%s可能已停止" % program_id)
+        logger.warning("touch_db失败，没有这条记录，%s可能已停止" % program_id)
         return False
     return True
 
@@ -105,8 +109,6 @@ def task_wrapper(args, info):
         'sigdefault': sigdefault,
         'sigterm': sigterm
     }
-
-    info['pid'] = os.getpid()
 
     # 当前路径
     directory = info.get("directory")
@@ -130,17 +132,20 @@ def task_wrapper(args, info):
     stdout = sys.stdout
     stderr = sys.stderr
     if stdout_logfile:
+        tools.get_logger("wrapper", file_name=stdout_logfile,
+                         level=logging.INFO, reset=True)
         try:
-            stdout = open(stdout_logfile, 'w+')
+            stdout = open(stdout_logfile, 'a')
         except OSError:
-            logging.warning("无法打开文件%s，日志打印到标准输出" % stdout_logfile)
+            logger.warning("无法打开文件%s，日志打印到标准输出" % stdout_logfile)
     if stderr_logfile:
         try:
-            stderr = open(stderr_logfile, 'w+')
+            stderr = open(stderr_logfile, 'a')
         except OSError:
-            logging.warning("无法打开文件%s，日志打印到标准错误" % stderr_logfile)
+            logger.warning("无法打开文件%s，日志打印到标准错误" % stderr_logfile)
 
     # 启动子进程
+    logger.info("启动子进程")
     process = subprocess.Popen(args, env=env, shell=True,
                                stdout=stdout, stderr=stderr,
                                preexec_fn=os.setsid)
@@ -150,13 +155,20 @@ def task_wrapper(args, info):
 
     def touch_db_loop(_stop_info):
         while True:
-            if _stop_info:
+            if _stop_info["stop"]:
                 break
             time.sleep(1)
-            touch_db(info['program_id'], info['touch_timeout'])
+            if not touch_db(info['program_id'], info['touch_timeout']):
+                p = _stop_info["process"]
+                logger.error("touch db失败，进程即将退出")
+                os.killpg(p.pid, signal.SIGKILL)
+                break
 
     # touch db 线程
-    stop_info = {}
+    stop_info = {
+        "stop": False,
+        "process": process
+    }
     thread = threading.Thread(target=touch_db_loop, args=(stop_info,))
     thread.start()
 
@@ -188,4 +200,5 @@ def main():
 
     args = json.loads(sys.argv[1])
     info = json.loads(sys.argv[2])
+
     task_wrapper(args, info)

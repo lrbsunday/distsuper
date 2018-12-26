@@ -79,6 +79,7 @@ class TestAPI(object):
         dpid = server.create_process("test_create_twice",
                                      "sleep 60")  # 创建进程
         assert dpid
+        assert server.stop_process(program_id=dpid)  # 清理
 
     def test_status(self):
         name = "test_status"
@@ -150,12 +151,20 @@ class TestAPI(object):
         assert dpid
         assert server.stop_process(program_id=dpid)  # 清理
 
-        with open(os.path.join(tmp_for_test, "test_logfile_stdout.log")) as fp:
-            line = fp.readline()
-            assert line.strip() == "stdout"
-        with open(os.path.join(tmp_for_test, "test_logfile_stderr.log")) as fp:
-            line = fp.readline()
-            assert line.strip() == "stderr"
+        with open(os.path.join(tmp_for_test, "test_logfile_stdout.log"),
+                  encoding="utf-8") as fp:
+            for line in fp:
+                if line.strip() == "stdout":
+                    break
+            else:
+                assert False
+        with open(os.path.join(tmp_for_test, "test_logfile_stderr.log"),
+                  encoding="utf-8") as fp:
+            for line in fp:
+                if line.strip() == "stderr":
+                    break
+            else:
+                assert False
 
     def test_machines(self):
         name = "test_machines"

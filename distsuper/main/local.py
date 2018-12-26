@@ -12,7 +12,7 @@ from distsuper.common import exceptions
 from distsuper.models.models import Process
 from distsuper.scripts.common import get_pid
 
-logger = logging.getLogger('agent')
+logger = logging.getLogger()
 
 
 def local_start(program_id, wait=3):
