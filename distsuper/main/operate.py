@@ -3,6 +3,7 @@ import logging
 
 from peewee import DoesNotExist, DatabaseError
 
+from distsuper.common.constant import STATUS
 from distsuper.models.models import Process
 from distsuper.common import tools, exceptions
 
@@ -22,16 +23,6 @@ autorestart只重启处于xx状态的进程
 """
 
 logger = logging.getLogger()
-
-
-class STATUS:
-    STOPPED = 0
-    STARTING = 10
-    RUNNING = 20
-    STOPPING = 40
-    EXITED = 100
-    FATAL = 200
-    UNKNOWN = -1
 
 
 def change_status(program_id, from_status, to_status):
@@ -148,7 +139,7 @@ def create_program(program_id, program_name, command, machines,
     :param max_fail_count:
     :param stdout_logfile:
     :param stderr_logfile:
-    :return:
+    :return: 程序对象
     """
     try:
         fields = dict(id=program_id,
@@ -182,8 +173,9 @@ def update_program(program_id, **fields):
     """ 更新一条进程
     :param program_id:
     :return:
+        True  - 更新成功
+        False - 更新失败
     """
-
     try:
         Process.select().where(Process.id == program_id).get()
     except DoesNotExist:
@@ -191,11 +183,7 @@ def update_program(program_id, **fields):
         logger.error(msg)
         raise exceptions.NoConfigException(msg)
 
-    ret_code = Process.update(**fields) \
+    Process.update(**fields) \
         .where(Process.id == program_id) \
         .execute()
-
-    if ret_code == 1:
-        return True
-
-    raise exceptions.UpdateDBException()
+    return True

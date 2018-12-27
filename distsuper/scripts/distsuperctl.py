@@ -7,6 +7,7 @@ import click
 
 from distsuper.scripts.common import check_config
 from distsuper.common import tools
+from distsuper.common.constant import get_status_name
 from distsuper.api import server as sa
 
 """
@@ -62,7 +63,7 @@ def status():
     results = [titles]
     for process in processes:
         name = process["name"]
-        _status = "运行中" if process["status"] == 1 else "已停止"
+        _status = get_status_name(process["status"])
         machine = process["machine"] or "-"
         start_time = process["create_time"] or "-"
         command = process["command"] or "-"
@@ -76,7 +77,6 @@ def status():
             max_length = max(tools.char_length(result[i]) for result in results)
             width_list.append(max_length)
 
-        print(width_list)
         for result in results:
             print('    '.join(["%-{}s".format(width
                                               - tools.unicode_count(field))

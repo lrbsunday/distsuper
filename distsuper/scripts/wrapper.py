@@ -8,9 +8,11 @@ import logging
 import threading
 import subprocess
 
+from peewee import DoesNotExist
+
 from distsuper.models.models import Process as ProcessModel
 from distsuper.common import tools
-from distsuper.main.operate import STATUS
+from distsuper.common.constant import STATUS
 
 logger = tools.get_logger("wrapper", level=logging.INFO)
 
@@ -84,20 +86,32 @@ def register_signal_handlers(process, info, callbacks):
 def touch_db(program_id, touch_timeout):
     logger.info("进程%s运行中..." % program_id)
     timeout_timestamp = int(time.time() + touch_timeout)
+    # 如果程序处于STARTING或STOPPING状态，无需touch db
+    try:
+        process = ProcessModel.select() \
+            .where(ProcessModel.id == program_id) \
+            .get()
+    except DoesNotExist:
+        logger.warning("touch_db失败，没有这条记录，%s可能已停止" % program_id)
+        return False
+
+    if process.status in (STATUS.STARTING, STATUS.STOPPING):
+        return True
+
     # noinspection PyBroadException
     try:
         ret = ProcessModel.update(timeout_timestamp=timeout_timestamp) \
             .where(ProcessModel.id == program_id,
-                   ProcessModel.status << (STATUS.STARTING,
-                                           STATUS.RUNNING,
-                                           STATUS.STOPPING)) \
+                   ProcessModel.status == STATUS.RUNNING) \
             .execute()
     except Exception:
         logger.exception("touch_db异常")
         return False
+
     if ret == 0:
         logger.warning("touch_db失败，没有这条记录，%s可能已停止" % program_id)
         return False
+
     return True
 
 
@@ -153,16 +167,20 @@ def task_wrapper(args, info):
     # 注册回调函数
     register_signal_handlers(process, info, callbacks)
 
+    # noinspection PyBroadException
     def touch_db_loop(_stop_info):
         while True:
-            if _stop_info["stop"]:
-                break
+            try:
+                if _stop_info["stop"]:
+                    break
+                if not touch_db(info['program_id'], info['touch_timeout']):
+                    p = _stop_info["process"]
+                    logger.error("touch db失败，进程即将退出")
+                    os.killpg(p.pid, signal.SIGKILL)
+                    break
+            except Exception:
+                logger.exception("touch db发生未知异常")
             time.sleep(1)
-            if not touch_db(info['program_id'], info['touch_timeout']):
-                p = _stop_info["process"]
-                logger.error("touch db失败，进程即将退出")
-                os.killpg(p.pid, signal.SIGKILL)
-                break
 
     # touch db 线程
     stop_info = {

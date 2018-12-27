@@ -2,7 +2,7 @@ import os
 
 from distsuper.api import server
 from distsuper.scripts.distsuperctl import init_db
-from distsuper.main.operate import STATUS
+from distsuper.common.constant import STATUS
 
 tmp_for_test = os.path.join(os.getcwd(), "tmp_for_test")
 os.system("rm -rf %s" % tmp_for_test)

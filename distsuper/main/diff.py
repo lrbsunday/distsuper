@@ -1,48 +1,75 @@
 #!-*- encoding: utf-8 -*-
 import time
 import logging
-from distsuper.api.server import start_process, stop_process
+
+from distsuper.api.server import restart_process
 from distsuper.models.models import Process
-from distsuper.common.tools import retry
+from distsuper.common import tools
+from distsuper.common.constant import STATUS
+
+logger = tools.get_logger("diff", file_name="logs/diff.log",
+                          level=logging.INFO)
 
 
-@retry(sleep_time=3, logger=logging)
+@tools.retry(sleep_time=3, logger=logger)
 def diff():
     while True:
-        # todo
-        # 需要启动的
-        # need_to_start()
+        # 需要重新启动的
+        need_to_restart()
 
-        # 锁超时的
-        # lock_timeout()
+        # 处于STARTING或STOPPING状态超过一定时间的
+        need_to_reset_status()
 
         # 休息
         time.sleep(5)
 
 
-def need_to_start():
-    """ autorestart=True而且长时间没有touchdb的
+def need_to_restart():
+    """ auto_restart=True而且长时间没有touchdb的
     :return:
     """
+    # 超时没有touch db的
     processes = Process.select().where(
-        Process.status == 1,
-        Process.touch_timeout < int(time.time()),
-        Process.lock == 0
+        Process.status == STATUS.RUNNING,
+        Process.auto_restart == 1,
+        Process.timeout_timestamp < int(time.time())
     )
     for process in processes:
-        start_process(program_id=process.id)
+        if Process.update(status=STATUS.EXITED) \
+                .where(Process.id == process.id,
+                       Process.status == STATUS.RUNNING,
+                       Process.auto_restart == 1,
+                       Process.timeout_timestamp < int(time.time())) \
+                .execute() == 1:
+            logger.info("重启进程%s" % process.id)
+            restart_process(program_id=process.id)
 
-
-def lock_timeout():
-    """ 长时间上锁，以数据库状态为准
-    :return:
-    """
+    # 处于exited状态的
     processes = Process.select().where(
-        Process.lock == 1,
-        Process.lock_time + 60 < int(time.time())
+        Process.status == STATUS.EXITED,
+        Process.auto_restart == 1
     )
     for process in processes:
-        if process.status == 1:
-            start_process(program_id=process.id)
-        else:
-            stop_process(program_id=process.id)
+        if Process.update(status=STATUS.EXITED) \
+                .where(Process.id == process.id,
+                       Process.status == STATUS.EXITED,
+                       Process.auto_restart == 1) \
+                .execute() == 1:
+            logger.info("重启进程%s" % process.id)
+            restart_process(program_id=process.id)
+
+
+def need_to_reset_status():
+    cnt = Process.update(status=STATUS.RUNNING) \
+        .where(Process.status == STATUS.STOPPING,
+               Process.timeout_timestamp < int(time.time())) \
+        .execute()
+    if cnt:
+        logger.info("重置了%s个进程的状态为RUNNING" % cnt)
+
+    cnt = Process.update(status=STATUS.STOPPED) \
+        .where(Process.status == STATUS.STARTING,
+               Process.timeout_timestamp < int(time.time())) \
+        .execute()
+    if cnt:
+        logger.info("重置了%s个进程的状态为STOPPED" % cnt)

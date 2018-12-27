@@ -5,7 +5,7 @@ from playhouse.shortcuts import model_to_dict
 
 from distsuper.common import handlers, exceptions, tools
 from distsuper.main import operate
-from distsuper.main.operate import STATUS
+from distsuper.common.constant import STATUS
 from distsuper.api import agent
 from . import app
 
@@ -111,14 +111,14 @@ def stop_process(program_id):
         logging.warning("程序%s已停止，无需重复停止" % program.id)
         raise exceptions.AlreadyStopException()
 
-    if program.status not in (STATUS.RUNNING,):
+    if program.status not in CAN_STOP_STATUS:
         logging.warning("程序%s不是运行状态，无法停止" % program.name)
         raise exceptions.StopException()
 
     machine = program.machine
 
     if not operate.change_status(program.id,
-                                 STATUS.RUNNING,
+                                 CAN_STOP_STATUS,
                                  STATUS.STOPPING):
         logging.error("程序%s修改状态失败" % program.id)
         raise exceptions.StopException()
