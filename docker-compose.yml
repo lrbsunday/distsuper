@@ -2,7 +2,7 @@ version: "3"
 
 services:
   database:
-    image: mysql
+    image: mysql:5.7
     environment:
       - MYSQL_ROOT_PASSWORD=lrbsunday
     ports:
@@ -17,8 +17,10 @@ services:
       - 3378:3378
     links:
       - database
-#    volumes:
-#      - .:/home/distsuper
+    depends_on:
+      - database
+    volumes:
+      - .:/home/distsuper
 #    entrypoint:
 #      - ./docker/distsuperd/entrypoint.sh
     command: [ "distsuperd", "start", "-f" ]
@@ -32,8 +34,10 @@ services:
       - 3379:3379
     links:
       - database
-#    volumes:
-#      - .:/home/distsuper
+    depends_on:
+      - database
+    volumes:
+      - .:/home/distsuper
 #    entrypoint:
 #      - ./docker/distsuperagent/entrypoint.sh
     command: [ "distsuperagent", "start", "-f" ]

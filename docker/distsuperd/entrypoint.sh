@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-python setup.py install
+# python setup.py install
 
 distsuperctl init db
 

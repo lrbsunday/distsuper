@@ -1,5 +1,6 @@
 FROM python:3.7
 
+RUN echo "Asia/Shanghai" > /etc/timezone && export TZ="Asia/Shanghai"
 RUN echo " \
     deb http://mirrors.aliyun.com/debian/ stretch main non-free contrib \
     deb http://mirrors.aliyun.com/debian/ stretch-updates main non-free contrib \
