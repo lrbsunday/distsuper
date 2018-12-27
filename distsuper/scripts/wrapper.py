@@ -14,7 +14,7 @@ from distsuper.models.models import Process as ProcessModel
 from distsuper.common import tools
 from distsuper.common.constant import STATUS
 
-logger = tools.get_logger("wrapper", level=logging.INFO)
+logger = logging.getLogger("wrapper")
 
 
 # noinspection PyUnusedLocal
@@ -146,8 +146,10 @@ def task_wrapper(args, info):
     stdout = sys.stdout
     stderr = sys.stderr
     if stdout_logfile:
-        tools.get_logger("wrapper", file_name=stdout_logfile,
-                         level=logging.INFO, reset=True)
+        tools.get_logger("wrapper",
+                         file_name=stdout_logfile,
+                         level=logging.INFO,
+                         reset=True)
         try:
             stdout = open(stdout_logfile, 'a')
         except OSError:

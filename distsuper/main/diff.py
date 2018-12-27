@@ -7,13 +7,13 @@ from distsuper.models.models import Process
 from distsuper.common import tools
 from distsuper.common.constant import STATUS
 
-logger = tools.get_logger("diff", file_name="logs/diff.log",
-                          level=logging.INFO)
+logger = logging.getLogger("diff")
 
 
-@tools.retry(sleep_time=3, logger=logger)
+@tools.retry(sleep_time=3)
 def diff():
     while True:
+        logger.info("diff")
         # 需要重新启动的
         need_to_restart()
 
@@ -62,14 +62,14 @@ def need_to_restart():
 def need_to_reset_status():
     cnt = Process.update(status=STATUS.RUNNING) \
         .where(Process.status == STATUS.STOPPING,
-               Process.timeout_timestamp < int(time.time())) \
+               Process.update_time + 60 < int(time.time())) \
         .execute()
     if cnt:
         logger.info("重置了%s个进程的状态为RUNNING" % cnt)
 
     cnt = Process.update(status=STATUS.STOPPED) \
         .where(Process.status == STATUS.STARTING,
-               Process.timeout_timestamp < int(time.time())) \
+               Process.update_time + 60 < int(time.time())) \
         .execute()
     if cnt:
         logger.info("重置了%s个进程的状态为STOPPED" % cnt)

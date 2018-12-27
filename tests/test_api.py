@@ -1,9 +1,11 @@
 import os
+import logging
 
 from distsuper.api import server
 from distsuper.scripts.distsuperctl import init_db
 from distsuper.common.constant import STATUS
 
+logging.getLogger().setLevel(logging.FATAL)
 tmp_for_test = os.path.join(os.getcwd(), "tmp_for_test")
 os.system("rm -rf %s" % tmp_for_test)
 os.system("mkdir -p %s" % tmp_for_test)

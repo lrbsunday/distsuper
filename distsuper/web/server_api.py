@@ -9,7 +9,7 @@ from distsuper.common.constant import STATUS
 from distsuper.api import agent
 from . import app
 
-logger = logging.getLogger()
+logger = logging.getLogger("interface.server")
 
 
 def get_best_machine(machines):

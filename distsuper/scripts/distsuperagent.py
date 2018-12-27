@@ -7,7 +7,7 @@ import sys
 import click
 
 from distsuper.scripts.common import check_config
-from distsuper.api.check import check_service_status
+from distsuper.api.agent import check_agent
 from distsuper import CONFIG
 
 
@@ -28,9 +28,7 @@ def start(force=False):
     env = os.environ
     env.update({'DISTSUPER_MODULE_NAME': 'agent'})
     ret = subprocess.Popen(args, env=env).wait()
-    if ret == 0 and check_service_status("127.0.0.1",
-                                         CONFIG.DISTSUPERAGENT.port,
-                                         'STARTING'):
+    if ret == 0 and check_agent('STARTING'):
         logging.info("agent启动成功")
     else:
         logging.info("agent启动失败")
@@ -45,9 +43,7 @@ def stop(force=False):
         sys.exit(-1)
     args = 'uwsgi --stop {}'.format(CONFIG.DISTSUPERAGENT.pid_file_path).split()
     ret = subprocess.Popen(args).wait()
-    if ret == 0 and not check_service_status("127.0.0.1",
-                                             CONFIG.DISTSUPERAGENT.port,
-                                             'STOPPING'):
+    if ret == 0 and not check_agent('STOPPING'):
         logging.info("agent停止成功")
     else:
         logging.info("agent停止失败")
@@ -63,9 +59,7 @@ def restart(force=False):
     args = 'uwsgi --reload {}'.format(
         CONFIG.DISTSUPERAGENT.pid_file_path).split()
     ret = subprocess.Popen(args).wait()
-    if ret == 0 and check_service_status("127.0.0.1",
-                                         CONFIG.DISTSUPERAGENT.port,
-                                         'STARTING'):
+    if ret == 0 and check_agent('STARTING'):
         logging.info("agent重启成功")
     else:
         logging.info("agent重启失败")

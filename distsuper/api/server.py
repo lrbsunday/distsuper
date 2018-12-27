@@ -1,13 +1,14 @@
 #!-*- encoding: utf-8 -*-
 import json
+import logging
 
 import requests
 
 from distsuper import CONFIG
-from distsuper.common import exceptions, tools
+from distsuper.common import tools, exceptions
 
 API_TIMEOUT = 30
-default_logger = tools.get_logger("client.agent")
+default_logger = logging.getLogger("client.server")
 
 
 def create_process(program_name, command,
@@ -245,3 +246,31 @@ def get_process(program_id=None, program_name=None,
         return None
 
     return r_dict["data"]
+
+
+def _check_server(status):
+    url = "http://%s:%s/check" % (CONFIG.DISTSUPERCTL.host,
+                                  CONFIG.DISTSUPERCTL.port)
+    try:
+        response = requests.get(url, timeout=API_TIMEOUT)
+    except requests.Timeout:
+        raise exceptions.RetryException
+    except requests.RequestException:
+        if status == 'STOPPING':
+            return False
+        raise exceptions.RetryException
+
+    if response.status_code != 200:
+        return False
+
+    return True
+
+
+def check_server(status):
+    if status == 'STARTING':
+        ret = tools.retry(max_retry_count=3)(_check_server)(status)
+    elif status == 'STOPPING':
+        ret = tools.retry()(_check_server)(status)
+    else:
+        ret = None
+    return ret

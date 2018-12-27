@@ -21,14 +21,14 @@ RUN apt-get -y update && \
     apt-get -y install vim
 
 WORKDIR /home/distsuper
-RUN mkdir /var/log/distsuperd /var/log/distsuperagent
+RUN mkdir /var/log/distsuperagent
 
 COPY . .
 RUN python setup.py install
-COPY distsuper/configure/distsuper.ini /etc/distsuper.ini
+COPY distsuper/configure/distsuper-docker.ini /etc/distsuper.ini
 RUN chmod +x docker/distsuperagent/entrypoint.sh
 
 EXPOSE 3379
 
-ENTRYPOINT ["./entrypoint.sh"]
-CMD [ "distsuperagent", "start" ]
+ENTRYPOINT ["docker/distsuperagent/entrypoint.sh"]
+CMD [ "distsuperagent", "start", "-f" ]

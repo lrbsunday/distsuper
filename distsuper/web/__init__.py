@@ -6,7 +6,9 @@ from flask import Flask
 
 from distsuper.common import tools
 
-tools.get_logger(None, None, level=logging.INFO)
+tools.get_logger("interface", None, level=logging.INFO)
+tools.get_logger("client", "None", level=logging.INFO)
+tools.get_logger("diff", "logs/diff.log", level=logging.INFO)
 app = Flask(__name__)
 
 

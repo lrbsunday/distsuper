@@ -9,10 +9,11 @@ import logging
 from peewee import DoesNotExist
 
 from distsuper.common import exceptions
+from distsuper.common.constant import STATUS
 from distsuper.models.models import Process
 from distsuper.scripts.common import get_pid
 
-logger = logging.getLogger()
+logger = logging.getLogger("interface.agent")
 
 
 def local_start(program_id, wait=3):
@@ -23,7 +24,7 @@ def local_start(program_id, wait=3):
         logger.warning(msg)
         raise exceptions.NoConfigException(msg)
 
-    if process.status == 1:
+    if process.status == STATUS.RUNNING:
         msg = "进程%s已启动，忽略本次请求" % process.name
         logger.warning(msg)
         raise exceptions.AlreadyStartException()
@@ -70,7 +71,7 @@ def local_stop(program_id, wait_timeout=10):
         logger.warning(msg)
         raise exceptions.NoConfigException(msg)
 
-    if process.status == 0:
+    if process.status == STATUS.STOPPED:
         msg = "进程%s已停止，忽略本次请求" % process.name
         logger.warning(msg)
         raise exceptions.AlreadyStopException()
@@ -96,7 +97,7 @@ def get_status(program_id):
     except DoesNotExist:
         return False
 
-    if process.status == 0:
+    if process.status == STATUS.STOPPED:
         return False
 
     return check_process(program_id)
@@ -123,10 +124,11 @@ def check_start_status(program_id, wait):
 
 def wait_until_stop_done(program_id, wait_timeout):
     while True:
-        time.sleep(1)
         if not check_process(program_id):
             return True
 
-        wait_timeout -= 1
         if wait_timeout <= 0:
             return False
+
+        wait_timeout -= 1
+        time.sleep(1)

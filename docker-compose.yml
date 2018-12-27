@@ -6,7 +6,7 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=lrbsunday
     ports:
-      - 3306:3306
+      - 13306:3306
 
   distsuperd:
     image: distsuperd
@@ -17,12 +17,11 @@ services:
       - 3378:3378
     links:
       - database
-    volumes:
-      - .:/home/distsuper
-      - ./distsuper.ini:/etc/distsuper.ini
-    entrypoint:
-      - ./docker/distsuperd/entrypoint.sh
-    command: ["distsuperd", "start"]
+#    volumes:
+#      - .:/home/distsuper
+#    entrypoint:
+#      - ./docker/distsuperd/entrypoint.sh
+    command: [ "distsuperd", "start", "-f" ]
 
   distsuperagent:
     image: distsuperagent
@@ -33,13 +32,12 @@ services:
       - 3379:3379
     links:
       - database
-    volumes:
-      - .:/home/distsuper
-      - ./distsuper.ini:/etc/distsuper.ini
-    entrypoint:
-      - ./docker/distsuperagent/entrypoint.sh
-# 下面三种写法均可
-    command: ["distsuperagent", "start"]
+#    volumes:
+#      - .:/home/distsuper
+#    entrypoint:
+#      - ./docker/distsuperagent/entrypoint.sh
+    command: [ "distsuperagent", "start", "-f" ]
+# 其他的两种写法也可
 #    command: distsuperagent start
 #    command:
 #      - distsuperagent

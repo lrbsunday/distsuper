@@ -22,7 +22,7 @@ http://www.supervisord.org/_images/subprocess-transitions.png
 autorestart只重启处于xx状态的进程
 """
 
-logger = logging.getLogger()
+logger = logging.getLogger("interface.server")
 
 
 def change_status(program_id, from_status, to_status):
