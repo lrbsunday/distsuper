@@ -13,8 +13,6 @@ import threading
 from multiprocessing.pool import ThreadPool
 from traceback import format_exc as einfo
 
-from peewee import UUIDField
-
 from .exceptions import *
 
 
@@ -113,7 +111,10 @@ def get_md5(s):
 
 
 def deal_in_thread_pool(func, arg_list_list, t_num=4, to_random=False,
-                        logger=logging):
+                        logger=None):
+    if logger is None:
+        logger = logging.getLogger('threadpool')
+
     def __process(args):
         i, s = args[:2]
         args = args[2:]

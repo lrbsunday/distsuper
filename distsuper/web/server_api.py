@@ -9,6 +9,8 @@ from distsuper.common.constant import STATUS
 from distsuper.api import agent
 from . import app
 
+logger = logging.getLogger()
+
 
 def get_best_machine(machines):
     machines = machines.split(";")
@@ -40,7 +42,7 @@ def create_process(program_id, program_name, command, machines,
 
     if program.status not in CAN_CREATE_STATUS:
         msg = "程序%s所处状态，无法重新创建" % program_name
-        logging.error(msg)
+        logger.error(msg)
         raise exceptions.AlreadExistsException(msg)
 
     if operate.update_program(program.id,
@@ -61,18 +63,18 @@ def create_process(program_id, program_name, command, machines,
                               timeout_timestamp=0x7FFFFFFF):
         return operate.get_program(program_id=program_id)
     else:
-        logging.error("程序创建失败")
+        logger.error("程序创建失败")
         raise exceptions.CreateException()
 
 
 def start_process(program_id):
     program = operate.get_program(program_id=program_id)
     if program.status == STATUS.RUNNING:
-        logging.warning("程序%s运行中，无需重复启动" % program.id)
+        logger.warning("程序%s运行中，无需重复启动" % program.id)
         raise exceptions.AlreadyStartException()
 
     if program.status not in CAN_START_STATUS:
-        logging.warning("程序%s所处状态无法启动" % program.name)
+        logger.warning("程序%s所处状态无法启动" % program.name)
         raise exceptions.StartException()
 
     machine = get_best_machine(program.machines)
@@ -80,12 +82,12 @@ def start_process(program_id):
     if not operate.change_status(program.id,
                                  CAN_START_STATUS,
                                  STATUS.STARTING):
-        logging.error("程序%s修改状态失败" % program.id)
+        logger.error("程序%s修改状态失败" % program.id)
         raise exceptions.StartException()
 
     ret = agent.start_process(program.id, machine)
     if not ret:
-        logging.error("程序%s启动失败" % program.id)
+        logger.error("程序%s启动失败" % program.id)
         operate.change_status(program.id, STATUS.STARTING, STATUS.STOPPED)
         raise exceptions.StartException()
 
@@ -95,11 +97,11 @@ def start_process(program_id):
     if operate.update_program(program_id=program.id, **fields):
         ret = operate.change_status(program.id, STATUS.STARTING, STATUS.RUNNING)
     else:
-        logging.error("程序%s更新数据库失败" % program.id)
+        logger.error("程序%s更新数据库失败" % program.id)
         ret = operate.change_status(program.id, STATUS.STARTING, STATUS.STOPPED)
 
     if not ret:
-        logging.error("程序%s修改状态失败" % program.id)
+        logger.error("程序%s修改状态失败" % program.id)
         raise exceptions.StartException()
 
     return program.id
@@ -108,11 +110,11 @@ def start_process(program_id):
 def stop_process(program_id):
     program = operate.get_program(program_id=program_id)
     if program.status == STATUS.STOPPED:
-        logging.warning("程序%s已停止，无需重复停止" % program.id)
+        logger.warning("程序%s已停止，无需重复停止" % program.id)
         raise exceptions.AlreadyStopException()
 
     if program.status not in CAN_STOP_STATUS:
-        logging.warning("程序%s不是运行状态，无法停止" % program.name)
+        logger.warning("程序%s不是运行状态，无法停止" % program.name)
         raise exceptions.StopException()
 
     machine = program.machine
@@ -120,18 +122,18 @@ def stop_process(program_id):
     if not operate.change_status(program.id,
                                  CAN_STOP_STATUS,
                                  STATUS.STOPPING):
-        logging.error("程序%s修改状态失败" % program.id)
+        logger.error("程序%s修改状态失败" % program.id)
         raise exceptions.StopException()
 
     ret = agent.stop_process(program.id, machine)
     if not ret:
-        logging.error("程序%s停止失败" % program.id)
+        logger.error("程序%s停止失败" % program.id)
         operate.change_status(program.id, STATUS.STOPPING, STATUS.RUNNING)
         raise exceptions.StopException()
 
     ret = operate.change_status(program.id, STATUS.STOPPING, STATUS.STOPPED)
     if not ret:
-        logging.error("程序%s修改状态失败" % program.id)
+        logger.error("程序%s修改状态失败" % program.id)
         raise exceptions.StopException()
 
     return program.id
@@ -192,13 +194,13 @@ def create(request_info):
         raise exceptions.ParamValueException("program_name不能为空")
 
     program_id = tools.gen_uuid()
-    logging.info(program_id)
+    logger.info(program_id)
     program = create_process(program_id, program_name, command, machines,
                              directory, environment,
                              auto_start, auto_restart, touch_timeout,
                              max_fail_count,
                              stdout_logfile, stderr_logfile)
-    logging.info(program.id)
+    logger.info(program.id)
 
     if program.auto_start:
         start_process(program.id)
