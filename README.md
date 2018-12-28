@@ -51,6 +51,7 @@ distsuperagent start
 
 
 ## 系统架构
+
 ![distsuper软件架构图][1]
 
 ### 守护进程`distsuperd`
