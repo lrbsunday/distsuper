@@ -7,6 +7,8 @@ services:
       - MYSQL_ROOT_PASSWORD=lrbsunday
     ports:
       - 13306:3306
+    networks:
+      - distsuper
 
   distsuperd:
     image: distsuperd
@@ -15,15 +17,13 @@ services:
       dockerfile: docker/distsuperd/Dockerfile
     ports:
       - 3378:3378
-    links:
-      - database
+    networks:
+      - distsuper
     depends_on:
       - database
     volumes:
+      - ./distsuper/configure/distsuper-compose.ini:/etc/distsuper.ini
 #      - .:/home/distsuper
-      - distsuper/configure/distsuper-compose.ini:/etc/distsuper.ini
-#    entrypoint:
-#      - ./docker/distsuperd/entrypoint.sh
     command: [ "distsuperd", "start", "-f" ]
 
   distsuperagent:
@@ -33,18 +33,20 @@ services:
       dockerfile: docker/distsuperagent/Dockerfile
     ports:
       - 3379:3379
-    links:
-      - database
+    networks:
+      - distsuper
     depends_on:
       - database
     volumes:
+      - ./distsuper/configure/distsuper-compose.ini:/etc/distsuper.ini
 #      - .:/home/distsuper
-      - distsuper/configure/distsuper-compose.ini:/etc/distsuper.ini
-#    entrypoint:
-#      - ./docker/distsuperagent/entrypoint.sh
     command: [ "distsuperagent", "start", "-f" ]
 # 其他的两种写法也可
 #    command: distsuperagent start
 #    command:
 #      - distsuperagent
 #      - start
+
+
+networks:
+  distsuper:

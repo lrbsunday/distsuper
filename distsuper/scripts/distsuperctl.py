@@ -59,7 +59,7 @@ def status():
         logging.error("获取进程信息失败")
         return
 
-    titles = ["ID", "名称", "状态", "机器", "启动时间", "命令"]
+    titles = ["ID", "名称", "状态", "机器", "创建时间", "命令"]
     results = [titles]
     for process in processes:
         name = process["name"]
