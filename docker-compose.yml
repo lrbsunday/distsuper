@@ -11,10 +11,10 @@ services:
       - distsuper
 
   distsuperd:
-    image: distsuperd
-    build:
-      context: .
-      dockerfile: docker/distsuperd/Dockerfile
+#    build:
+#      context: .
+#      dockerfile: docker/distsuperd/Dockerfile
+    image: ccr.ccs.tencentyun.com/yijia/peiyin:distsuperd-v1
     ports:
       - 3378:3378
     networks:
@@ -27,10 +27,10 @@ services:
     command: [ "distsuperd", "start", "-f" ]
 
   distsuperagent:
-    image: distsuperagent
-    build:
-      context: .
-      dockerfile: docker/distsuperagent/Dockerfile
+#    build:
+#      context: .
+#      dockerfile: docker/distsuperagent/Dockerfile
+    image: ccr.ccs.tencentyun.com/yijia/peiyin:distsuperagent-v1
     ports:
       - 3379:3379
     networks:
