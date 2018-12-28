@@ -20,7 +20,8 @@ services:
     depends_on:
       - database
     volumes:
-      - .:/home/distsuper
+#      - .:/home/distsuper
+      - distsuper/configure/distsuper-compose.ini:/etc/distsuper.ini
 #    entrypoint:
 #      - ./docker/distsuperd/entrypoint.sh
     command: [ "distsuperd", "start", "-f" ]
@@ -37,7 +38,8 @@ services:
     depends_on:
       - database
     volumes:
-      - .:/home/distsuper
+#      - .:/home/distsuper
+      - distsuper/configure/distsuper-compose.ini:/etc/distsuper.ini
 #    entrypoint:
 #      - ./docker/distsuperagent/entrypoint.sh
     command: [ "distsuperagent", "start", "-f" ]
