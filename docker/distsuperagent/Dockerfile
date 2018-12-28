@@ -19,7 +19,8 @@ RUN mkdir ~/.pip && \
     trusted-host=pypi.tuna.tsinghua.edu.cn \
     " > ~/.pip/pip.conf
 RUN apt-get -y update && \
-    apt-get -y install vim
+    apt-get -y install vim && \
+    apt-get -y install netcat
 
 WORKDIR /home/distsuper
 RUN mkdir /var/log/distsuperagent
